@@ -1,0 +1,21 @@
+id,name,istat_code,img_url
+a81bd554-7b7c-44dc-9a76-5dd73e542ff9,Piemonte,01,https://upload.wikimedia.org/wikipedia/commons/4/42/Regione-Piemonte-Stemma.svg
+d9868547-6df4-4fb6-8b21-f9b9eed13e6b,Valle d'Aosta,02,https://upload.wikimedia.org/wikipedia/commons/1/1e/Logo_della_Valle_d%27Aosta.svg
+1d7b6a2b-ec02-40e2-88ee-9a337726c0da,Lombardia,03,https://upload.wikimedia.org/wikipedia/commons/5/5e/Flag_of_Lombardy_square.svg
+4bc91aec-4380-4ea5-b044-a428cfac930e,Trentino-Alto Adige,04,https://upload.wikimedia.org/wikipedia/commons/b/b4/Coat_of_arms_of_Trentino-South_Tyrol.svg
+575cc32e-d848-48e2-9844-dbc30043d401,Veneto,05,https://upload.wikimedia.org/wikipedia/commons/c/cd/Coat_of_Arms_of_Veneto.png
+efeb9228-7011-4557-b61b-1deff47798eb,Friuli-Venezia Giulia,06,https://upload.wikimedia.org/wikipedia/commons/c/c3/Friuli-Venezia-Giulia-Stemma.svg
+f01424e5-5ac0-4d9c-aaca-75f612a8c3f7,Liguria,07,https://upload.wikimedia.org/wikipedia/commons/4/41/Coat_of_arms_of_Liguria.svg
+bb123f2c-ee2c-470a-ba3d-f65d7e0a68ae,Emilia-Romagna,08,https://upload.wikimedia.org/wikipedia/commons/c/ca/Regione-Emilia-Romagna-Stemma.svg
+2be24ebf-2c90-43fc-9338-51f66ccac9ee,Toscana,09,https://upload.wikimedia.org/wikipedia/commons/4/4f/Coat_of_arms_of_Tuscany.svg
+2d6325e7-eb5c-4fd4-961e-3d56e04fb74c,Umbria,10,https://upload.wikimedia.org/wikipedia/commons/5/55/Regione-Umbria-Stemma.svg
+0227e06b-5155-4f19-a4f4-e798d9802c6e,Marche,11,https://upload.wikimedia.org/wikipedia/commons/b/b9/Coat_of_arms_of_Marche.svg
+ea4e2a38-da5e-4dd4-9501-621bd7a02ac0,Lazio,12,https://upload.wikimedia.org/wikipedia/commons/7/76/Lazio_Coat_of_Arms.svg
+583267ac-513e-4361-b590-b026428ab026,Abruzzo,13,https://upload.wikimedia.org/wikipedia/commons/c/ce/Regione-Abruzzo-Stemma.svg
+9355f53e-8c79-4a26-8732-92abd907cce2,Molise,14,https://upload.wikimedia.org/wikipedia/commons/f/fb/Regione-Molise-Stemma.svg
+c10aa32b-95cc-4f32-b3a9-b88efd1d1c18,Campania,15,https://upload.wikimedia.org/wikipedia/commons/a/a8/Regione-Campania-Stemma.svg
+3b8d63af-eb6e-4601-a7a3-05e815fa454d,Puglia,16,https://upload.wikimedia.org/wikipedia/commons/d/d0/Coat_of_Arms_of_Apulia.svg
+c71508b6-54cb-4c70-affc-d84cc3ad16d6,Basilicata,17,https://upload.wikimedia.org/wikipedia/commons/0/07/Regione-Basilicata-Stemma.svg
+28323b31-7656-4740-8220-3038f78610d3,Calabria,18,https://upload.wikimedia.org/wikipedia/commons/b/bf/Coat_of_arms_of_Calabria.svg
+fe52a5e8-e12e-4a0b-94e8-bf46077f4a70,Sicilia,19,https://upload.wikimedia.org/wikipedia/commons/d/df/Coat_of_arms_of_Sicily.svg
+28c0be4f-9fba-49c3-a815-665eeae428ee,Sardegna,20,https://upload.wikimedia.org/wikipedia/commons/6/65/Flag_of_Sardinia.svg
