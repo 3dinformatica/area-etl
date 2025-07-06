@@ -49,7 +49,7 @@ CREATE TABLE users
 (
     id                       UUID                     NOT NULL DEFAULT gen_random_uuid(),
     -- SUPER_USER, ADMIN, REGIONAL_OPERATOR, OPERATOR
-    user_role                VARCHAR(100)             NOT NULL,
+    user_role                VARCHAR                  NOT NULL,
     first_name               TEXT                     NOT NULL,
     last_name                TEXT                     NOT NULL,
     tax_code                 TEXT                     NOT NULL,
@@ -116,7 +116,7 @@ CREATE TABLE companies
     code               TEXT                     NOT NULL,
     company_name       TEXT                     NOT NULL,
     -- SOCIETA_SEMPLICE, SOCIETA_IN_NOME_COLLETTIVO, SOCIETA_IN_ACCOMANDITA_SEMPLICE, SOCIETA_A_RESPONSABILITA_LIMITATA, SOCIETA_A_RESPONSABILITA_LIMITATA_SEMPLIFICATA, SOCIETA_PER_AZIONI, SOCIETA_IN_ACCOMANDITA_PER_AZIONI, COOPERATIVA, REGIME_FORFETTARIO, SOCIETA_DI_CAPITALI_UNIPERSONALE, SOCIETA_EUROPEA, ODV, CONSORZIO, COMUNITA_MONTANA
-    company_form       VARCHAR(100),
+    company_form       VARCHAR,
     -- SOCIETA, IMPRESA_INDIVIDUALE, STUDIO_PROFESSIONALE, ENTE_PUBBLICO, ASSOCIAZIONE, ASSOCIAZIONE_TEMPORANEA_DI_IMPRESA, ENTE_ECCLESIASTICO_CIVILMENTE_RICONOSCIUTO, FONDAZIONE, ENTE_MORALE_DI_DIRITTO_PRIVATO, CONSORZIO
     company_legal_form VARCHAR                  NOT NULL,
     -- PUBBLICO, PRIVATO, AZIENDA_SANITARIA
@@ -441,7 +441,7 @@ CREATE TABLE udo_types
     has_branches_only_public_or_private_company    BOOLEAN                  NOT NULL,
     has_services                                   BOOLEAN                  NOT NULL,
     has_scopes                                     BOOLEAN                  NOT NULL,
-    company_natures                                TEXT[],
+    company_natures                                VARCHAR[],
     -- FLUSSO_STS, FLUSSO_HSP, FLUSSO_RIA, IN_ATTESA, NON_PREVISTO
     ministerial_flows                              VARCHAR[],
     classification_id                              UUID,
@@ -490,64 +490,64 @@ CREATE TABLE udos
 
 -- Foreign key constraints
 ALTER TABLE production_factors
-    ADD CONSTRAINT fk_production_factors_production_factor_type_id
-        FOREIGN KEY (production_factor_type_id) REFERENCES production_factor_types (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_production_factors_production_factor_type_id FOREIGN KEY (production_factor_type_id)
+        REFERENCES production_factor_types (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_branches
-    ADD CONSTRAINT fk_udo_branches_udo_id
-        FOREIGN KEY (udo_id) REFERENCES udos (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_branches_udo_id FOREIGN KEY (udo_id)
+        REFERENCES udos (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_disciplines
-    ADD CONSTRAINT fk_udo_disciplines_udo_id
-        FOREIGN KEY (udo_id) REFERENCES udos (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_disciplines_udo_id FOREIGN KEY (udo_id)
+        REFERENCES udos (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_production_factors
-    ADD CONSTRAINT fk_udo_production_factors_udo_id
-        FOREIGN KEY (udo_id) REFERENCES udos (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_production_factors_udo_id FOREIGN KEY (udo_id)
+        REFERENCES udos (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_production_factors
-    ADD CONSTRAINT fk_udo_production_factors_production_factor_id
-        FOREIGN KEY (production_factor_id) REFERENCES production_factors (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_production_factors_production_factor_id FOREIGN KEY (production_factor_id)
+        REFERENCES production_factors (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_statuses
-    ADD CONSTRAINT fk_udo_statuses_udo_id
-        FOREIGN KEY (udo_id) REFERENCES udos (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_statuses_udo_id FOREIGN KEY (udo_id)
+        REFERENCES udos (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_statuses
-    ADD CONSTRAINT fk_udo_statuses_status_id
-        FOREIGN KEY (status_id) REFERENCES statuses (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_statuses_status_id FOREIGN KEY (status_id)
+        REFERENCES statuses (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_type_production_factor_types
-    ADD CONSTRAINT fk_udo_type_production_factor_types_udo_type_id
-        FOREIGN KEY (udo_type_id) REFERENCES udo_types (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_type_production_factor_types_udo_type_id FOREIGN KEY (udo_type_id)
+        REFERENCES udo_types (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udo_type_production_factor_types
-    ADD CONSTRAINT fk_udo_type_production_factor_types_production_factor_type_id
-        FOREIGN KEY (production_factor_type_id) REFERENCES production_factor_types (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udo_type_production_factor_types_production_factor_type_id FOREIGN KEY (production_factor_type_id)
+        REFERENCES production_factor_types (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 ALTER TABLE udos
-    ADD CONSTRAINT fk_udos_type_id
-        FOREIGN KEY (udo_type_id) REFERENCES udo_types (id)
-            ON UPDATE NO ACTION
-            ON DELETE NO ACTION;
+    ADD CONSTRAINT fk_udos_type_id FOREIGN KEY (udo_type_id)
+        REFERENCES udo_types (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
 
 -------------------------------------------------------SPECIALTY--------------------------------------------------------
 -- Tables
@@ -665,7 +665,7 @@ CREATE TABLE resolutions
     id                   UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name                 TEXT,
     -- UDO, GENERALE, PROGRAMMAZIONE, REQUISITI
-    category             TEXT                     NOT NULL,
+    category             VARCHAR                  NOT NULL,
     -- AUTORIZZAZIONE, ACCREDITAMENTO, REVOCA_AUT, REVOCA_ACC
     procedure_type       VARCHAR,
     number               TEXT,
@@ -693,6 +693,7 @@ ALTER TABLE resolutions
     ADD CONSTRAINT fk_resolutions_resolution_type_id FOREIGN KEY (resolution_type_id)
         REFERENCES resolution_types (id)
         ON DELETE CASCADE;
+
 
 -------------------------------------------------------ORGCHART---------------------------------------------------------
 -- Tables
@@ -802,7 +803,9 @@ CREATE TABLE nodes
     is_acting_functionary         BOOLEAN,
     is_valid_organigram           BOOLEAN,
     role_of_responsible           TEXT,
+    -- EROGA, NON_EROGA
     activity                      TEXT,
+    -- IN_DISMISSIONE, NUOVA, ASSENTE
     state                         TEXT,
     profile                       TEXT,
     email                         TEXT,
@@ -860,6 +863,7 @@ CREATE TABLE organigrams
 (
     id              UUID                     NOT NULL DEFAULT gen_random_uuid(),
     version         INTEGER                  NOT NULL DEFAULT 0,
+    -- BOZZA, RIFIUTATO, IN_APPROVAZIONE, VISTO, APPROVATO, ARCHIVIATO, APPROVATO_REGIONE,
     status_code     TEXT                     NOT NULL,
     validated_at    TIMESTAMP WITH TIME ZONE,
     is_from_model   BOOLEAN                  NOT NULL DEFAULT FALSE,
@@ -937,77 +941,92 @@ CREATE TABLE sub_areas
 
 -- Foreign key constraints
 ALTER TABLE function_diagram_nodes
-    ADD CONSTRAINT fk_function_diagram_nodes_function_diagram_id FOREIGN KEY (function_diagram_id) REFERENCES function_diagrams (id)
+    ADD CONSTRAINT fk_function_diagram_nodes_function_diagram_id FOREIGN KEY (function_diagram_id)
+        REFERENCES function_diagrams (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE function_diagram_nodes
-    ADD CONSTRAINT fk_function_diagram_nodes_node_id FOREIGN KEY (node_id) REFERENCES nodes (id)
+    ADD CONSTRAINT fk_function_diagram_nodes_node_id FOREIGN KEY (node_id)
+        REFERENCES nodes (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE legal_inquiries
-    ADD CONSTRAINT fk_legal_inquiries_legal_inquiries_type_id FOREIGN KEY (legal_inquiries_type_id) REFERENCES legal_inquiries_types (id)
+    ADD CONSTRAINT fk_legal_inquiries_legal_inquiries_type_id FOREIGN KEY (legal_inquiries_type_id)
+        REFERENCES legal_inquiries_types (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE models
-    ADD CONSTRAINT fk_models_organigram_id FOREIGN KEY (organigram_id) REFERENCES organigrams (id)
+    ADD CONSTRAINT fk_models_organigram_id FOREIGN KEY (organigram_id)
+        REFERENCES organigrams (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE node_types
-    ADD CONSTRAINT fk_node_types_area_id FOREIGN KEY (area_id) REFERENCES areas (id)
+    ADD CONSTRAINT fk_node_types_area_id FOREIGN KEY (area_id)
+        REFERENCES areas (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE node_types
-    ADD CONSTRAINT fk_node_legal_inquiries_id FOREIGN KEY (legal_inquiries_id) REFERENCES legal_inquiries (id)
+    ADD CONSTRAINT fk_node_legal_inquiries_id FOREIGN KEY (legal_inquiries_id)
+        REFERENCES legal_inquiries (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE nodes
-    ADD CONSTRAINT fk_nodes_organigram_id FOREIGN KEY (organigram_id) REFERENCES organigrams (id)
+    ADD CONSTRAINT fk_nodes_organigram_id FOREIGN KEY (organigram_id)
+        REFERENCES organigrams (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE nodes
-    ADD CONSTRAINT fk_nodes_node_type_id FOREIGN KEY (node_type_id) REFERENCES node_types (id)
+    ADD CONSTRAINT fk_nodes_node_type_id FOREIGN KEY (node_type_id)
+        REFERENCES node_types (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE nodes
-    ADD CONSTRAINT fk_nodes_sub_area_id FOREIGN KEY (sub_area_id) REFERENCES sub_areas (id)
+    ADD CONSTRAINT fk_nodes_sub_area_id FOREIGN KEY (sub_area_id)
+        REFERENCES sub_areas (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE organigram_attachments
-    ADD CONSTRAINT fk_organigram_organigram_id FOREIGN KEY (organigram_id) REFERENCES organigrams (id)
+    ADD CONSTRAINT fk_organigram_organigram_id FOREIGN KEY (organigram_id)
+        REFERENCES organigrams (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE organigram_emails
-    ADD CONSTRAINT fk_organigram_emails_organigram_id FOREIGN KEY (organigram_id) REFERENCES organigrams (id)
+    ADD CONSTRAINT fk_organigram_emails_organigram_id FOREIGN KEY (organigram_id)
+        REFERENCES organigrams (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE rules
-    ADD CONSTRAINT fk_rules_legal_inquiries_type_id FOREIGN KEY (legal_inquiries_type_id) REFERENCES legal_inquiries_types (id)
+    ADD CONSTRAINT fk_rules_legal_inquiries_type_id FOREIGN KEY (legal_inquiries_type_id)
+        REFERENCES legal_inquiries_types (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE rules
-    ADD CONSTRAINT fk_rules_node_type_id FOREIGN KEY (node_type_id) REFERENCES node_types (id)
+    ADD CONSTRAINT fk_rules_node_type_id FOREIGN KEY (node_type_id)
+        REFERENCES node_types (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE rules
-    ADD CONSTRAINT fk_rules_rule_type_id FOREIGN KEY (rule_type_id) REFERENCES rule_types (id)
+    ADD CONSTRAINT fk_rules_rule_type_id FOREIGN KEY (rule_type_id)
+        REFERENCES rule_types (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE sub_areas
-    ADD CONSTRAINT fk_sub_areas_area_id FOREIGN KEY (area_id) REFERENCES areas (id)
+    ADD CONSTRAINT fk_sub_areas_area_id FOREIGN KEY (area_id)
+        REFERENCES areas (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
@@ -1018,13 +1037,14 @@ CREATE TABLE cronos_companies
     id              UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name            TEXT,
     code            TEXT                     NOT NULL,
+    --   PUBBLICO, PRIVATO, AZIENDA_SANITARIA
     cronos_nature   VARCHAR                  NOT NULL,
     area_company_id UUID,
     extra           JSONB                    NOT NULL DEFAULT '{}'::jsonb,
     disabled_at     TIMESTAMP WITH TIME ZONE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_companies PRIMARY KEY (id),
+    CONSTRAINT pk_cronos_companies PRIMARY KEY (id),
     CONSTRAINT uc_cronos_companies_code UNIQUE (code)
 );
 
@@ -1106,11 +1126,17 @@ CREATE TABLE cronos_plans
 (
     id                           UUID                     NOT NULL DEFAULT gen_random_uuid(),
     is_mental_health             BOOLEAN                  NOT NULL DEFAULT FALSE,
+    --   GESTIONE_PUBBLICA, GESTIONE_PRIVATA
     ssn_relationship             VARCHAR                  NOT NULL,
+    --   BOZZA, VALIDO, CHIUSO
     cronos_status                VARCHAR                  NOT NULL,
+    --   HSP, STS, RIA
     cronos_flow_type             VARCHAR,
+    -- OSP, SM, SS
     cronos_category              VARCHAR,
+    -- ACUTI, RIABILITAZIONE, INTERMEDIE
     macro_area                   VARCHAR                  NOT NULL,
+    -- ATTIVITA_OSPEDALIERE, ATTIVITA_INTERMEDIE, ATTIVITA_TERRITORIALE
     cronos_scope                 VARCHAR                  NOT NULL,
     validity_end_dt              TIMESTAMP WITH TIME ZONE,
     deletion_resolution_id       UUID,
@@ -1232,6 +1258,7 @@ CREATE TABLE employees
     first_name                 TEXT,
     tax_code                   TEXT,
     date_of_birth              DATE,
+    -- M, F
     gender                     VARCHAR(1),
     email                      TEXT,
     role_id                    INTEGER,
@@ -1354,62 +1381,74 @@ CREATE TABLE work_contexts
 
 -- Foreign key constraints
 ALTER TABLE employee_specializations
-    ADD CONSTRAINT fk_employee_specializations_employees FOREIGN KEY (employee_id) REFERENCES employees (id)
+    ADD CONSTRAINT fk_employee_specializations_employees FOREIGN KEY (employee_id)
+        REFERENCES employees (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE employee_specializations
-    ADD CONSTRAINT fk_employee_specializations_specializations FOREIGN KEY (specialization_id) REFERENCES specializations (id)
+    ADD CONSTRAINT fk_employee_specializations_specializations FOREIGN KEY (specialization_id)
+        REFERENCES specializations (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE employees
-    ADD CONSTRAINT fk_employees_hrgroups_code FOREIGN KEY (hrgroup_code) REFERENCES hr_groups (code)
+    ADD CONSTRAINT fk_employees_hrgroups_code FOREIGN KEY (hrgroup_code)
+        REFERENCES hr_groups (code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE employees
-    ADD CONSTRAINT fk_employees_roles FOREIGN KEY (hrgroup_code, role_id) REFERENCES roles (hrgroup_code, id)
+    ADD CONSTRAINT fk_employees_roles FOREIGN KEY (hrgroup_code, role_id)
+        REFERENCES roles (hrgroup_code, id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE employees
-    ADD CONSTRAINT fk_employees_profiles FOREIGN KEY (hrgroup_code, profile_cod) REFERENCES profiles (hrgroup_code, code)
+    ADD CONSTRAINT fk_employees_profiles FOREIGN KEY (hrgroup_code, profile_cod)
+        REFERENCES profiles (hrgroup_code, code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE employees
-    ADD CONSTRAINT fk_employees_establishment_department_uo FOREIGN KEY (hrgroup_code, establishment_code, department_code) REFERENCES establishment_department_uo (hrgroup_code, establishment_code, department_code)
+    ADD CONSTRAINT fk_employees_establishment_department_uo FOREIGN KEY (hrgroup_code, establishment_code, department_code)
+        REFERENCES establishment_department_uo (hrgroup_code, establishment_code, department_code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE employees
-    ADD CONSTRAINT fk_employees_workcontexts FOREIGN KEY (work_context_id) REFERENCES work_contexts (id)
+    ADD CONSTRAINT fk_employees_workcontexts FOREIGN KEY (work_context_id)
+        REFERENCES work_contexts (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE establishment_department_uo
-    ADD CONSTRAINT fk_establishment_department_uo_hr_groups_code FOREIGN KEY (hrgroup_code) REFERENCES hr_groups (code)
+    ADD CONSTRAINT fk_establishment_department_uo_hr_groups_code FOREIGN KEY (hrgroup_code)
+        REFERENCES hr_groups (code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE profiles
-    ADD CONSTRAINT fk_profiles_hrgroup_code FOREIGN KEY (hrgroup_code) REFERENCES hr_groups (code)
+    ADD CONSTRAINT fk_profiles_hrgroup_code FOREIGN KEY (hrgroup_code)
+        REFERENCES hr_groups (code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE roles
-    ADD CONSTRAINT fk_roles_hrgroup_code FOREIGN KEY (hrgroup_code) REFERENCES hr_groups (code)
+    ADD CONSTRAINT fk_roles_hrgroup_code FOREIGN KEY (hrgroup_code)
+        REFERENCES hr_groups (code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE work_context_udos
-    ADD CONSTRAINT fk_work_context_udos_work_contexts FOREIGN KEY (work_context_id) REFERENCES work_contexts (id)
+    ADD CONSTRAINT fk_work_context_udos_work_contexts FOREIGN KEY (work_context_id)
+        REFERENCES work_contexts (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE work_contexts
-    ADD CONSTRAINT fk_work_contexts_establishment_department_uo FOREIGN KEY (hrgroup_code, establishment_code, department_code) REFERENCES establishment_department_uo (hrgroup_code, establishment_code, department_code)
+    ADD CONSTRAINT fk_work_contexts_establishment_department_uo FOREIGN KEY (hrgroup_code, establishment_code, department_code)
+        REFERENCES establishment_department_uo (hrgroup_code, establishment_code, department_code)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
@@ -1482,11 +1521,8 @@ CREATE TABLE procedure_type_requirement_list_comp_type_comp_class
     requirement_list_id       UUID NOT NULL,
     company_type_id           UUID NOT NULL,
     company_classification_id UUID,
-    CONSTRAINT pk_procedure_type_requirement_list_comp_type_comp_class PRIMARY KEY (id),
-    CONSTRAINT uc_procedure_type_requirement_list_comp_type_comp_class UNIQUE NULLS NOT DISTINCT (procedure_type,
-                                                                                                  requirement_list_id,
-                                                                                                  company_type_id,
-                                                                                                  company_classification_id)
+    CONSTRAINT pk_procedure_type_requirement_list_comp_type_comp_class PRIMARY KEY (id)
+
 );
 
 CREATE TABLE procedure_type_requirement_list_for_physical_structures

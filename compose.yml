@@ -1,17 +1,17 @@
 services:
   area-postgres:
     container_name: "area-postgres"
-    image: "postgres:17.5"
+    image: "postgres:17"
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=area-db
+      - POSTGRES_DB=area_db
       - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=P4ssword!
     volumes:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U admin -d area-db" ]
+      test: [ "CMD-SHELL", "pg_isready -U admin -d area_db" ]
       interval: 10s
       retries: 5
       start_period: 30s

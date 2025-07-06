@@ -3,4 +3,19 @@ name = "area-etl"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "connectorx>=0.4.3",
+    "cx-oracle>=8.3.0",
+    "oracledb>=3.2.0",
+    "pandas>=2.3.0",
+    "polars>=1.31.0",
+    "psycopg2-binary>=2.9.10",
+    "pyarrow>=20.0.0",
+    "pydantic-settings>=2.10.1",
+    "sqlalchemy>=2.0.41",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.1",
+]
