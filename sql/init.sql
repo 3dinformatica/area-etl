@@ -551,43 +551,7 @@ ALTER TABLE udos
 
 -------------------------------------------------------SPECIALTY--------------------------------------------------------
 -- Tables
-CREATE TABLE branches
-(
-    id               UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name             TEXT                     NOT NULL,
-    code             TEXT                     NOT NULL,
-    description      TEXT,
-    type             TEXT,
-    is_cronos        BOOLEAN                  NOT NULL,
-    parent_branch_id UUID,
-    extra            JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at      TIMESTAMP WITH TIME ZONE,
-    created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_branches PRIMARY KEY (id),
-    CONSTRAINT uc_branches_name UNIQUE (name),
-    CONSTRAINT uc_branches_code UNIQUE (code)
-);
-
-CREATE TABLE disciplines
-(
-    id                     UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name                   TEXT                     NOT NULL,
-    description            TEXT,
-    type                   TEXT                     NOT NULL,
-    code                   TEXT                     NOT NULL,
-    is_cronos              BOOLEAN                  NOT NULL,
-    is_poa                 BOOLEAN                  NOT NULL,
-    grouping_discipline_id UUID                     NOT NULL,
-    extra                  JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at            TIMESTAMP WITH TIME ZONE,
-    created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_disciplines PRIMARY KEY (id),
-    CONSTRAINT uc_disciplines_code_and_grouping_discipline_id UNIQUE (code, grouping_discipline_id)
-);
-
-CREATE TABLE grouping_disciplines
+CREATE TABLE grouping_specialties
 (
     id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name        TEXT                     NOT NULL,
@@ -596,52 +560,43 @@ CREATE TABLE grouping_disciplines
     disabled_at TIMESTAMP WITH TIME ZONE,
     created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_grouping_disciplines PRIMARY KEY (id),
-    CONSTRAINT uc_grouping_disciplines_name UNIQUE (name)
+    CONSTRAINT pk_grouping_specialties PRIMARY KEY (id),
+    CONSTRAINT uc_grouping_specialties_name UNIQUE (name)
 );
 
 CREATE TABLE specialties
 (
-    id                     UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    old_id                 TEXT,
-    name                   TEXT                     NOT NULL,
-    description            TEXT,
-    specialty_type         TEXT                     NOT NULL,
-    type                   TEXT,
-    code                   TEXT                     NOT NULL,
-    is_cronos              BOOLEAN                  NOT NULL,
-    is_poa                 BOOLEAN                  NOT NULL,
-    grouping_discipline_id UUID,
-    parent_branch_id       UUID,
-    extra                  JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at            TIMESTAMP WITH TIME ZONE,
-    created_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    id                    UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name                  TEXT                     NOT NULL,
+    description           TEXT,
+    -- DISCIPLINE, BRANCH
+    record_type           TEXT                     NOT NULL,
+    -- ALTRO, TERRITORIALE, OSPEDALIERO, NON_OSPEDALIERO
+    type                  TEXT,
+    code                  TEXT                     NOT NULL,
+    is_used_in_cronos     BOOLEAN                  NOT NULL DEFAULT TRUE,
+    is_used_in_poa        BOOLEAN                  NOT NULL DEFAULT TRUE,
+    grouping_specialty_id UUID,
+    parent_specialty_id   UUID,
+    -- TODO: Drop
+    old_id                TEXT,
+    extra                 JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at           TIMESTAMP WITH TIME ZONE,
+    created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     CONSTRAINT pk_specialties PRIMARY KEY (id),
-    CONSTRAINT uc_specialties_code_and_grouping_discipline_id UNIQUE (code, grouping_discipline_id)
+    CONSTRAINT uc_specialties_name_and_code UNIQUE (name, code)
 );
 
 -- Foreign key constraints
-ALTER TABLE branches
-    ADD CONSTRAINT fk_branches_parent_branch_id FOREIGN KEY (parent_branch_id)
-        REFERENCES branches (id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION;
-
-ALTER TABLE disciplines
-    ADD CONSTRAINT fk_disciplines_grouping_discipline_id FOREIGN KEY (grouping_discipline_id)
-        REFERENCES grouping_disciplines (id)
+ALTER TABLE specialties
+    ADD CONSTRAINT fk_specialties_grouping_discipline_id FOREIGN KEY (grouping_specialty_id)
+        REFERENCES grouping_specialties (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 ALTER TABLE specialties
-    ADD CONSTRAINT fk_specialties_grouping_discipline_id FOREIGN KEY (grouping_discipline_id)
-        REFERENCES grouping_disciplines (id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION;
-
-ALTER TABLE specialties
-    ADD CONSTRAINT fk_specialties_parent_branch_id FOREIGN KEY (parent_branch_id)
+    ADD CONSTRAINT fk_specialties_parent_specialty_id FOREIGN KEY (parent_specialty_id)
         REFERENCES specialties (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;

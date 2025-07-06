@@ -18,22 +18,38 @@ def map_macroarea(value: str | None) -> str | None:
         return "RIABILITAZIONE"
     elif value == "intermedie":
         return "INTERMEDIE"
+    elif value == "territoriale":
+        return "TERRITORIALE"
     else:
         return value
 
 
-def migrate_grouping_disciplines(ctx: ETLContext) -> None:
+def map_specialty_type(value: str) -> str | None:
+    match value.lower().strip():
+        case "alt":
+            return "ALTRO"
+        case "terr" | "ter":
+            return "TERRITORIALE"
+        case "nonosp":
+            return "NON_OSPEDALIERO"
+        case "osp":
+            return "OSPEDALIERO"
+        case _:
+            return None
+
+
+def migrate_grouping_specialties(ctx: ETLContext) -> None:
     df_ragg_discpl = pl.read_database(
-        "SELECT * FROM RAGG_DISCPL",
+        "SELECT * FROM AUAC_USR.RAGG_DISCPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
     df_macroarea_programmazione = pl.read_database(
-        "SELECT * FROM MACROAREA_PROGRAMMAZIONE",
+        "SELECT * FROM AUAC_USR.MACROAREA_PROGRAMMAZIONE",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     ).select(
-        pl.col("CLIENTID").str.strip_chars().alias("ID_MACROAREA_FK"),
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("ID_MACROAREA_FK"),
         pl.col("NOME").str.strip_chars().alias("macroarea"),
     )
     df_result = df_ragg_discpl.join(
@@ -44,7 +60,7 @@ def migrate_grouping_disciplines(ctx: ETLContext) -> None:
     )
 
     df_result = df_result.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("macroarea")
         .str.strip_chars()
@@ -71,34 +87,51 @@ def migrate_grouping_disciplines(ctx: ETLContext) -> None:
     )
 
     df_result.write_database(
-        table_name="grouping_disciplines",
+        table_name="grouping_specialties",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated grouping_disciplines")
+    logging.info("Migrated grouping_specialties")
 
 
-def migrate_disciplines(ctx: ETLContext) -> None:
+def migrate_specialties(ctx: ETLContext) -> None:
     df_disciplina_templ = pl.read_database(
-        "SELECT * FROM DISCIPLINA_TEMPL",
+        "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    df_branca_templ = pl.read_database(
+        "SELECT * FROM AUAC_USR.BRANCA_TEMPL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    df_artic_branca_altro_templ = pl.read_database(
+        "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
 
-    df_result = df_disciplina_templ.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
+    # Process disciplines
+    df_disciplines = df_disciplina_templ.select(
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("DESCR").str.strip_chars().alias("description"),
-        pl.col("TIPO").str.strip_chars().alias("type"),
+        pl.col("TIPO")
+        .str.to_lowercase()
+        .str.strip_chars()
+        .map_elements(map_specialty_type, return_dtype=pl.String)
+        .alias("type"),
         pl.col("CODICE").str.strip_chars().alias("code"),
         pl.when(pl.col("PROGRAMMAZIONE") == 1)
         .then(True)
         .otherwise(False)
-        .alias("is_cronos"),
-        pl.when(pl.col("POA") == 1).then(True).otherwise(False).alias("is_poa"),
+        .alias("is_used_in_cronos"),
+        pl.when(pl.col("POA") == 1).then(True).otherwise(False).alias("is_used_in_poa"),
         pl.col("ID_RAGG_DISCIPL_TEMPL_FK")
+        .cast(pl.String)
         .str.strip_chars()
-        .alias("grouping_discipline_id"),
+        .alias("grouping_specialty_id"),
+        pl.col("ID_DISCIPLINA").cast(pl.String).str.strip_chars().alias("old_id"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -118,40 +151,25 @@ def migrate_disciplines(ctx: ETLContext) -> None:
         )
         .otherwise(None)
         .alias("disabled_at"),
+        pl.lit(None).alias("parent_specialty_id"),
+    ).with_columns(
+        record_type=pl.lit("DISCIPLINE")
     )
 
-    df_result.write_database(
-        table_name="disciplines",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info("Migrated disciplines")
-
-
-def migrate_branches(ctx: ETLContext) -> None:
-    df_branca_templ = pl.read_database(
-        "SELECT * FROM BRANCA_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    df_artic_branca_altro_templ = pl.read_database(
-        "SELECT * FROM ARTIC_BRANCA_ALTRO_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-
-    # Prepara il dataframe principale
-    df_branca_templ = df_branca_templ.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
+    # Process branches
+    df_branches = df_branca_templ.select(
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().fill_null("-").alias("name"),
         pl.col("DESCR").str.strip_chars().alias("description"),
-        pl.col("TIPO").str.strip_chars().alias("type"),
+        pl.lit(None).alias("type"),
         pl.col("CODICE").str.strip_chars().fill_null(pl.col("NOME")).alias("code"),
-        pl.col("IS_ALTRO").str.strip_chars(),
         pl.when(pl.col("PROGRAMMAZIONE") == 1)
         .then(True)
         .otherwise(False)
-        .alias("is_cronos"),
+        .alias("is_used_in_cronos"),
+        pl.lit(True).alias("is_used_in_poa"),
+        pl.lit(None).alias("grouping_specialty_id"),
+        pl.col("ID_BRANCA").cast(pl.String).str.strip_chars().alias("old_id"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -171,22 +189,28 @@ def migrate_branches(ctx: ETLContext) -> None:
         )
         .otherwise(None)
         .alias("disabled_at"),
-        pl.lit(None).alias("parent_branch_id"),
+        pl.lit(None).alias("parent_specialty_id"),
+    ).with_columns(
+        record_type=pl.lit("BRANCH")
     )
 
-    # Prepara il dataframe aggiuntivo con JOIN per parent_branch_id
-    df_artic_branca_altro_templ = df_artic_branca_altro_templ.join(
-        df_branca_templ.filter(pl.col("IS_ALTRO") == "S").select(
-            pl.col("id").alias("parent_branch_id")
-        ),
-        how="cross",
-    ).select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
+    # Find parent branch ID for additional branches
+    parent_branches = df_branca_templ.filter(pl.col("IS_ALTRO") == "S")
+    parent_branch_id = None
+    if parent_branches.height > 0:
+        parent_branch_id = parent_branches.select(pl.col("CLIENTID").cast(pl.String).str.strip_chars()).row(0)[0]
+
+    # Process additional branches
+    df_additional_branches = df_artic_branca_altro_templ.select(
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("name"),
         pl.col("SETTING_BRANCA").str.strip_chars().alias("description"),
         pl.lit(None).alias("type"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("code"),
-        pl.lit(False).alias("is_cronos"),
+        pl.lit(True).alias("is_used_in_cronos"),
+        pl.lit(True).alias("is_used_in_poa"),
+        pl.lit(None).alias("grouping_specialty_id"),
+        pl.lit(None).alias("old_id"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -206,17 +230,21 @@ def migrate_branches(ctx: ETLContext) -> None:
         )
         .otherwise(None)
         .alias("disabled_at"),
-        pl.col("parent_branch_id"),
-        pl.lit("{}").alias("extra"),
+        pl.lit(parent_branch_id).alias("parent_specialty_id"),
+    ).with_columns(
+        record_type=pl.lit("BRANCH")
     )
 
-    # Unisci i dataframe
-    df_result = pl.concat([df_branca_templ, df_artic_branca_altro_templ])
+    # Combine all dataframes
+    df_result = pl.concat([df_disciplines, df_branches, df_additional_branches], how="vertical_relaxed")
 
-    # Scrivi nel database
+    # Remove duplicates based on name and code to avoid unique constraint violation
+    df_result = df_result.unique(subset=["name", "code"], keep="first")
+
+    # Write to database
     df_result.write_database(
-        table_name="branches",
+        table_name="specialties",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated branches")
+    logging.info("Migrated specialties")
