@@ -62,6 +62,8 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
             "udo_production_factors",
             "udo_type_production_factor_types",
             "udo_branches",
+            "resolutions",
+            "resolution_types",
         ]
         for table in tables:
             conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))

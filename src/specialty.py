@@ -152,9 +152,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
         .otherwise(None)
         .alias("disabled_at"),
         pl.lit(None).alias("parent_specialty_id"),
-    ).with_columns(
-        record_type=pl.lit("DISCIPLINE")
-    )
+    ).with_columns(record_type=pl.lit("DISCIPLINE"))
 
     # Process branches
     df_branches = df_branca_templ.select(
@@ -190,15 +188,15 @@ def migrate_specialties(ctx: ETLContext) -> None:
         .otherwise(None)
         .alias("disabled_at"),
         pl.lit(None).alias("parent_specialty_id"),
-    ).with_columns(
-        record_type=pl.lit("BRANCH")
-    )
+    ).with_columns(record_type=pl.lit("BRANCH"))
 
     # Find parent branch ID for additional branches
     parent_branches = df_branca_templ.filter(pl.col("IS_ALTRO") == "S")
     parent_branch_id = None
     if parent_branches.height > 0:
-        parent_branch_id = parent_branches.select(pl.col("CLIENTID").cast(pl.String).str.strip_chars()).row(0)[0]
+        parent_branch_id = parent_branches.select(
+            pl.col("CLIENTID").cast(pl.String).str.strip_chars()
+        ).row(0)[0]
 
     # Process additional branches
     df_additional_branches = df_artic_branca_altro_templ.select(
@@ -231,12 +229,12 @@ def migrate_specialties(ctx: ETLContext) -> None:
         .otherwise(None)
         .alias("disabled_at"),
         pl.lit(parent_branch_id).alias("parent_specialty_id"),
-    ).with_columns(
-        record_type=pl.lit("BRANCH")
-    )
+    ).with_columns(record_type=pl.lit("BRANCH"))
 
     # Combine all dataframes
-    df_result = pl.concat([df_disciplines, df_branches, df_additional_branches], how="vertical_relaxed")
+    df_result = pl.concat(
+        [df_disciplines, df_branches, df_additional_branches], how="vertical_relaxed"
+    )
 
     # Remove duplicates based on name and code to avoid unique constraint violation
     df_result = df_result.unique(subset=["name", "code"], keep="first")

@@ -9,6 +9,7 @@ from company import (
 )
 from core import setup_logging, setup_connections, truncate_postgresql_tables
 from location import migrate_regions_provinces_municipalities, migrate_toponyms
+from resolution import migrate_resolution_types, migrate_resolutions
 from specialty import (
     migrate_grouping_specialties,
     migrate_specialties,
@@ -30,6 +31,8 @@ def main() -> None:
     truncate_postgresql_tables(ctx)
     migrate_regions_provinces_municipalities(ctx)
     migrate_toponyms(ctx)
+    migrate_resolution_types(ctx)
+    migrate_resolutions(ctx)
     migrate_company_types(ctx)
     migrate_companies(ctx)
     migrate_physical_structures(ctx)
