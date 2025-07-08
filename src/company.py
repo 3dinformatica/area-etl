@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 from datetime import datetime, timezone
 
 import polars as pl
@@ -7,45 +7,32 @@ import polars as pl
 from core import ETLContext
 
 
-def migrate_company_types(ctx: ETLContext) -> None:
-    df = pl.read_database(
-        "SELECT * FROM TIPO_TITOLARE_TEMPL", connection=ctx.oracle_engine.connect()
-    )
-    result = df.select(
-        pl.col("CLIENTID").str.to_lowercase().str.strip_chars().alias("id"),
-        pl.col("DESCR").str.strip_chars().alias("name"),
-        pl.when(pl.col("SHOW_DICHIARAZIONE_DIR_SAN") == "S")
-        .then(True)
-        .otherwise(False)
-        .alias("is_show_health_director_declaration"),
-        pl.when(pl.col("ORGANIGRAMMA_ATTIVO") == "S")
-        .then(True)
-        .otherwise(False)
-        .alias("is_active_organization_chart"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
-    )
-    result.write_database(
-        table_name="company_types", connection=ctx.pg_engine, if_table_exists="append"
-    )
-    logging.info("Migrated company types")
+MUNICIPALITY_MAPPING = {
+    "masera' di padova": "maserà di padova",
+    "dolce'": "dolcè",
+    "codogne'": "codognè",
+    "arsie'": "arsiè",
+    "arqua' polesine": "arquà polesine",
+    "arqua' petrarca": "arquà petrarca",
+    "carre'": "carrè",
+    "mansu'": "mansuè",
+    "erbe'": "erbè",
+    "fosso'": "fossò",
+    "palu'": "palù",
+    "ponte san nicolo'": "ponte san nicolò",
+    "portobuffole'": "portobuffolè",
+    "ronca'": "roncà",
+    "rosa'": "rosà",
+    "roveredo di gua'": "roveredo di guà",
+    "rovere' veronese": "roverè veronese",
+    "san dona' di piave": "san donà di piave",
+    "san nicolo' di comelico": "san nicolò di comelico",
+    "scorze'": "scorzè",
+    "sorga'": "sorgà",
+    "zane'": "zanè",
+    "zoppe' di cadore": "zoppè di cadore",
+    "mansue'": "mansué",
+}
 
 
 def map_company_form(value: str) -> str | None:
@@ -112,27 +99,96 @@ def map_company_legal_form(value: str) -> str | None:
             return None
 
 
-def migrate_companies(ctx: ETLContext) -> None:
-    df_titolare_model = pl.read_database(
-        "SELECT * FROM TITOLARE_MODEL",
+def normalize_municipality_name(name: str) -> str:
+    """Normalizza il nome del comune secondo le regole di mappatura."""
+    if not name:
+        return name
+    name_lower = name.lower()
+    return MUNICIPALITY_MAPPING.get(name_lower, name_lower)
+
+
+def migrate_company_types(ctx: ETLContext) -> None:
+    ### EXTRACT ###
+    df_company_types = pl.read_database(
+        "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_company_types.height} from table "AUAC_USR.TIPO_TITOLARE_TEMPL"'
+    )
+
+    ### TRANSFORM ###
+    df_result = df_company_types.select(
+        pl.col("CLIENTID").str.to_lowercase().str.strip_chars().alias("id"),
+        pl.col("DESCR").str.strip_chars().alias("name"),
+        pl.when(pl.col("SHOW_DICHIARAZIONE_DIR_SAN") == "S")
+        .then(True)
+        .otherwise(False)
+        .alias("is_show_health_director_declaration"),
+        pl.when(pl.col("ORGANIGRAMMA_ATTIVO") == "S")
+        .then(True)
+        .otherwise(False)
+        .alias("is_active_organization_chart"),
+        pl.col("CREATION")
+        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone(None)
+        .alias("created_at"),
+        pl.col("LAST_MOD")
+        .fill_null(pl.col("CREATION"))
+        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
+        pl.when(pl.col("DISABLED") == "S")
+        .then(
+            pl.col("LAST_MOD")
+            .fill_null(pl.col("CREATION"))
+            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone(None)
+        )
+        .otherwise(None)
+        .alias("disabled_at"),
+    )
+
+    ### LOAD ###
+    df_result.write_database(
+        table_name="company_types", connection=ctx.pg_engine, if_table_exists="append"
+    )
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "company_types"')
+
+
+def migrate_companies(ctx: ETLContext) -> None:
+    ### EXTRACT ###
+    df_titolare_model = pl.read_database(
+        "SELECT * FROM AUAC_USR.TITOLARE_MODEL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_titolare_model.height} from table "AUAC_USR.TITOLARE_MODEL"'
+    )
     df_tipologia_richiedente = pl.read_database(
-        "SELECT * FROM TIPOLOGIA_RICHIEDENTE",
+        "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     ).select(
         pl.col("CLIENTID").alias("ID_TIPO_RICH_FK"),
         pl.col("DESCR").alias("company_legal_form"),
     )
+    logging.info(
+        f'⛏️ Extracted {df_tipologia_richiedente.height} from table "AUAC_USR.TIPOLOGIA_RICHIEDENTE"'
+    )
     df_natura_titolare_templ = pl.read_database(
-        "SELECT * FROM NATURA_TITOLARE_TEMPL",
+        "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     ).select(
         pl.col("CLIENTID").alias("ID_NATURA_FK"),
         pl.col("DESCR").alias("company_nature"),
+    )
+    logging.info(
+        f'⛏️ Extracted {df_natura_titolare_templ.height} from table "AUAC_USR.NATURA_TITOLARE_TEMPL"'
     )
     df_municipalities = pl.read_database(
         "SELECT * FROM municipalities",
@@ -142,27 +198,29 @@ def migrate_companies(ctx: ETLContext) -> None:
         pl.col("id").alias("municipality_id"),
         pl.col("istat_code"),
     )
+    logging.info(f'⛏️ Extracted {df_municipalities.height} from table "municipalities"')
 
-    df_company = df_titolare_model.join(
+    ### TRANSFORM ###
+    df_result = df_titolare_model.join(
         df_tipologia_richiedente,
         left_on="ID_TIPO_RICH_FK",
         right_on="ID_TIPO_RICH_FK",
         how="left",
     )
-    df_company = df_company.join(
+    df_result = df_result.join(
         df_natura_titolare_templ,
         left_on="ID_NATURA_FK",
         right_on="ID_NATURA_FK",
         how="left",
     )
-    df_company = df_company.join(
+    df_result = df_result.join(
         df_municipalities,
         left_on="COD_COMUNE_ESTESO",
         right_on="istat_code",
         how="left",
     )
 
-    df_company = df_company.select(
+    df_result = df_result.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("CODICEUNIVOCO").str.strip_chars().alias("code"),
@@ -215,20 +273,26 @@ def migrate_companies(ctx: ETLContext) -> None:
         .alias("disabled_at"),
     )
 
-    df_company.write_database(
+    ### LOAD ###
+    df_result.write_database(
         table_name="companies", connection=ctx.pg_engine, if_table_exists="append"
     )
-    logging.info("Migrated companies")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "companies"')
 
 
 def migrate_physical_structures(ctx: ETLContext) -> None:
+    ### EXTRACT ###
     df_struttura_model = pl.read_database(
-        "SELECT * FROM STRUTTURA_MODEL",
+        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_struttura_model.height} from table "AUAC_USR.STRUTTURA_MODEL"'
+    )
 
-    result = df_struttura_model.select(
+    ### TRANSFORM ###
+    df_result = df_struttura_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("CODICE_PF").str.strip_chars().alias("code"),
@@ -262,8 +326,7 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
         ).alias("extra"),
     )
 
-    # Converti la colonna extra in JSON
-    result = result.with_columns(
+    df_result = df_result.with_columns(
         pl.col("extra").map_elements(
             lambda x: (
                 "{}"
@@ -274,59 +337,25 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
         )
     )
 
-    result.write_database(
+    ### LOAD ###
+    df_result.write_database(
         table_name="physical_structures",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated physical structures")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "physical_structures"')
 
 
-MUNICIPALITY_MAPPING = {
-    "masera' di padova": "maserà di padova",
-    "dolce'": "dolcè",
-    "codogne'": "codognè",
-    "arsie'": "arsiè",
-    "arqua' polesine": "arquà polesine",
-    "arqua' petrarca": "arquà petrarca",
-    "carre'": "carrè",
-    "mansu'": "mansuè",
-    "erbe'": "erbè",
-    "fosso'": "fossò",
-    "palu'": "palù",
-    "ponte san nicolo'": "ponte san nicolò",
-    "portobuffole'": "portobuffolè",
-    "ronca'": "roncà",
-    "rosa'": "rosà",
-    "roveredo di gua'": "roveredo di guà",
-    "rovere' veronese": "roverè veronese",
-    "san dona' di piave": "san donà di piave",
-    "san nicolo' di comelico": "san nicolò di comelico",
-    "scorze'": "scorzè",
-    "sorga'": "sorgà",
-    "zane'": "zanè",
-    "zoppe' di cadore": "zoppè di cadore",
-    "mansue'": "mansué",
-}
-
-
-def normalize_municipality_name(name: str) -> str:
-    """Normalizza il nome del comune secondo le regole di mappatura."""
-    if not name:
-        return name
-    name_lower = name.lower()
-    return MUNICIPALITY_MAPPING.get(name_lower, name_lower)
-
-
-def migrate_operational_office(ctx: ETLContext) -> None:
-    # Leggi i dati dalla tabella SEDE_OPER_MODEL
+def migrate_operational_offices(ctx: ETLContext) -> None:
+    ### EXTRACT ###
     df_sede_oper_model = pl.read_database(
-        "SELECT * FROM SEDE_OPER_MODEL",
+        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
-
-    # Leggi i dati dei comuni
+    logging.info(
+        f'⛏️ Extracted {df_sede_oper_model.height} from table "AUAC_USR.SEDE_OPER_MODEL"'
+    )
     df_municipalities = pl.read_database(
         "SELECT * FROM municipalities",
         connection=ctx.pg_engine.connect(),
@@ -335,18 +364,20 @@ def migrate_operational_office(ctx: ETLContext) -> None:
         pl.col("id"),
         pl.col("name").str.to_lowercase().alias("municipality_name"),
     )
-
-    # Leggi i dati dei tipi di punto fisico
-    df_tipo_punto_fisico = pl.read_database(
-        "SELECT * FROM TIPO_PUNTO_FISICO_TEMPL",
+    logging.info(f'⛏️ Extracted {df_municipalities.height} from table "municipalities"')
+    df_tipo_punto_fisico_templ = pl.read_database(
+        "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     ).select(
         pl.col("CLIENTID"),
         pl.col("NOME"),
     )
+    logging.info(
+        f'⛏️ Extracted {df_tipo_punto_fisico_templ.height} from table "AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"'
+    )
 
-    # Normalizza i nomi dei comuni
+    ### TRANSFORM ###
     df_sede_oper_model = df_sede_oper_model.with_columns(
         [
             pl.col("COMUNE")
@@ -355,25 +386,19 @@ def migrate_operational_office(ctx: ETLContext) -> None:
             .alias("normalized_comune"),
         ]
     )
-
-    # Join con i tipi di punto fisico
     df_with_point_type = df_sede_oper_model.join(
-        df_tipo_punto_fisico,
+        df_tipo_punto_fisico_templ,
         left_on="ID_TIPO_PUNTO_FISICO_FK",
         right_on="CLIENTID",
         how="left",
     )
-
-    # Join con i comuni
     df_with_municipality = df_with_point_type.join(
         df_municipalities,
         left_on="normalized_comune",
         right_on="municipality_name",
         how="left",
     )
-
-    # Trasforma i dati
-    result = df_with_municipality.select(
+    df_result = df_with_municipality.select(
         [
             # ID e nome
             pl.col("CLIENTID").str.strip_chars().alias("id"),
@@ -421,26 +446,30 @@ def migrate_operational_office(ctx: ETLContext) -> None:
     )
 
     # Rimuovi i duplicati mantenendo il primo record per ogni ID
-    result = result.unique(subset=["id"], keep="first")
+    df_result = df_result.unique(subset=["id"], keep="first")
 
-    # Scrivi nel database
-    result.write_database(
+    ### LOAD ###
+    df_result.write_database(
         table_name="operational_offices",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-
-    logging.info("Migrated operational offices")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "operational_offices"')
 
 
 def migrate_buildings(ctx: ETLContext) -> None:
-    df_building = pl.read_database(
-        "SELECT * FROM EDIFICIO_STR_TEMPL",
+    ### EXTRACT ###
+    df_edificio_str_templ = pl.read_database(
+        "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_edificio_str_templ.height} from table "AUAC_USR.EDIFICIO_STR_TEMPL"'
+    )
 
-    result = df_building.select(
+    ### TRANSFORM ###
+    df_result = df_edificio_str_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("CODICE").str.strip_chars().alias("code"),
@@ -483,7 +512,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
     )
 
     # Converti la colonna extra in JSON
-    result = result.with_columns(
+    df_result = df_result.with_columns(
         pl.col("extra").map_elements(
             lambda x: "{}" if x["docway_file_id"] is None else json.dumps(x),
             return_dtype=pl.String,
@@ -491,11 +520,12 @@ def migrate_buildings(ctx: ETLContext) -> None:
     )
 
     # Filtra il record specifico
-    result = result.filter(pl.col("id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
+    df_result = df_result.filter(pl.col("id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
 
-    result.write_database(
+    ### LOAD ###
+    df_result.write_database(
         table_name="buildings",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated buildings")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "buildings"')

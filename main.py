@@ -4,7 +4,7 @@ from company import (
     migrate_company_types,
     migrate_companies,
     migrate_physical_structures,
-    migrate_operational_office,
+    migrate_operational_offices,
     migrate_buildings,
 )
 from core import setup_logging, setup_connections, truncate_postgresql_tables
@@ -36,7 +36,7 @@ def main() -> None:
     migrate_company_types(ctx)
     migrate_companies(ctx)
     migrate_physical_structures(ctx)
-    migrate_operational_office(ctx)
+    migrate_operational_offices(ctx)
     migrate_buildings(ctx)
     migrate_grouping_specialties(ctx)
     migrate_specialties(ctx)
