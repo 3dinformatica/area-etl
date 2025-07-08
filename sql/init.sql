@@ -370,7 +370,7 @@ CREATE TABLE udo_production_factors
     CONSTRAINT pk_udo_production_factors PRIMARY KEY (udo_id, production_factor_id)
 );
 
-CREATE TABLE udo_statuses
+CREATE TABLE udo_status_history
 (
     id                 UUID                     NOT NULL DEFAULT gen_random_uuid(),
     udo_id             UUID                     NOT NULL,
@@ -386,7 +386,7 @@ CREATE TABLE udo_statuses
     disabled_at        TIMESTAMP WITH TIME ZONE,
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_udo_statuses PRIMARY KEY (id)
+    CONSTRAINT pk_udo_status_history PRIMARY KEY (id)
 );
 
 CREATE TABLE udo_type_production_factor_types
@@ -417,6 +417,7 @@ CREATE TABLE udo_types
     has_branches_only_public_or_private_company    BOOLEAN                  NOT NULL,
     has_services                                   BOOLEAN                  NOT NULL,
     has_scopes                                     BOOLEAN                  NOT NULL,
+    -- PUBBLICO, PRIVATO, AZIENDA_SANITARIA
     company_natures                                VARCHAR[],
     -- FLUSSO_STS, FLUSSO_HSP, FLUSSO_RIA, IN_ATTESA, NON_PREVISTO
     ministerial_flows                              VARCHAR[],
@@ -436,6 +437,8 @@ CREATE TABLE udos
 (
     id                            UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name                          TEXT                     NOT NULL,
+    -- NUOVA, AUTORIZZATA, ACCREDITATA, CHIUSA, SOSPESA
+    status                        VARCHAR                  NOT NULL,
     code                          TEXT,
     floor                         TEXT,
     block                         TEXT,
@@ -489,8 +492,8 @@ ALTER TABLE udo_production_factors
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE udo_statuses
-    ADD CONSTRAINT fk_udo_statuses_udo_id FOREIGN KEY (udo_id)
+ALTER TABLE udo_status_history
+    ADD CONSTRAINT fk_udo_status_history_udo_id FOREIGN KEY (udo_id)
         REFERENCES udos (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
