@@ -443,10 +443,10 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    # Convert array columns to Python lists to ensure compatibility with PostgreSQL
+    # Convert array columns to PostgreSQL array format to ensure compatibility
     df_result = df_result.with_columns([
-        pl.col("company_natures").map_elements(lambda x: [str(item) for item in x if item is not None] if x is not None else [], return_dtype=pl.List),
-        pl.col("ministerial_flows").map_elements(lambda x: [str(item) for item in x if item is not None] if x is not None else [], return_dtype=pl.List)
+        pl.col("company_natures").map_elements(lambda x: "{" + ",".join(f'"{str(item)}"' for item in x if item is not None) + "}" if x is not None else "{}", return_dtype=pl.Utf8).alias("company_natures"),
+        pl.col("ministerial_flows").map_elements(lambda x: "{" + ",".join(f'"{str(item)}"' for item in x if item is not None) + "}" if x is not None else "{}", return_dtype=pl.Utf8).alias("ministerial_flows")
     ])
 
     load_data(ctx, df_result, "udo_types")
