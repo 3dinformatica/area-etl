@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from company import (
     migrate_company_types,
@@ -30,6 +31,7 @@ from udo import (
 
 def main() -> None:
     setup_logging()
+    start_time = datetime.now()
     logging.info("Starting A.Re.A. ETL process...")
 
     try:
@@ -58,9 +60,19 @@ def main() -> None:
         migrate_udo_specialties_from_disciplines(ctx)
         migrate_udo_resolutions(ctx)
         migrate_udo_status_history(ctx)
+
+        end_time = datetime.now()
+        elapsed_time = end_time - start_time
+        hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        logging.info(f"Total migration time: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
         logging.info("ETL process completed successfully")
     except Exception as e:
-        logging.error(f"Error during ETL execution: {str(e)}", exc_info=True)
+        end_time = datetime.now()
+        elapsed_time = end_time - start_time
+        hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        logging.error(f"Error during ETL execution after {int(hours)}h {int(minutes)}m {seconds:.2f}s: {str(e)}", exc_info=True)
         raise
 
 
