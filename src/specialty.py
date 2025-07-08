@@ -39,10 +39,14 @@ def map_specialty_type(value: str) -> str | None:
 
 
 def migrate_grouping_specialties(ctx: ETLContext) -> None:
+    ### EXTRACT ###
     df_ragg_discpl = pl.read_database(
         "SELECT * FROM AUAC_USR.RAGG_DISCPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_ragg_discpl.height} from table "AUAC_USR.RAGG_DISCPL"'
     )
     df_macroarea_programmazione = pl.read_database(
         "SELECT * FROM AUAC_USR.MACROAREA_PROGRAMMAZIONE",
@@ -52,13 +56,17 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("ID_MACROAREA_FK"),
         pl.col("NOME").str.strip_chars().alias("macroarea"),
     )
+    logging.info(
+        f'⛏️ Extracted {df_macroarea_programmazione.height} from table "AUAC_USR.MACROAREA_PROGRAMMAZIONE"'
+    )
+
+    ### TRANSFORM ###
     df_result = df_ragg_discpl.join(
         df_macroarea_programmazione,
         left_on="ID_MACROAREA_FK",
         right_on="ID_MACROAREA_FK",
         how="left",
     )
-
     df_result = df_result.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
@@ -86,32 +94,43 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
         .alias("disabled_at"),
     )
 
+    ### LOAD ###
     df_result.write_database(
         table_name="grouping_specialties",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated grouping_specialties")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "grouping_specialties"')
 
 
 def migrate_specialties(ctx: ETLContext) -> None:
+    ### EXTRACT ###
     df_disciplina_templ = pl.read_database(
         "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_disciplina_templ.height} from table "AUAC_USR.TOPONIMO_TEMPL"'
     )
     df_branca_templ = pl.read_database(
         "SELECT * FROM AUAC_USR.BRANCA_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_branca_templ.height} from table "AUAC_USR.BRANCA_TEMPL"'
+    )
     df_artic_branca_altro_templ = pl.read_database(
         "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_artic_branca_altro_templ.height} from table "AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"'
+    )
 
-    # Process disciplines
+    ### TRANSFORM ###
     df_disciplines = df_disciplina_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
@@ -233,16 +252,17 @@ def migrate_specialties(ctx: ETLContext) -> None:
 
     # Combine all dataframes
     df_result = pl.concat(
-        [df_disciplines, df_branches, df_additional_branches], how="vertical_relaxed"
+        [df_disciplines, df_branches, df_additional_branches],
+        how="vertical_relaxed"
     )
 
     # Remove duplicates based on name and code to avoid unique constraint violation
     df_result = df_result.unique(subset=["name", "code"], keep="first")
 
-    # Write to database
+    ### LOAD ###
     df_result.write_database(
         table_name="specialties",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated specialties")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "specialties"')
