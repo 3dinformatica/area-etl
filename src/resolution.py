@@ -3,26 +3,25 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext
+from core import ETLContext, extract_data, load_data
 
 
 def migrate_resolution_types(ctx: ETLContext) -> None:
+    """
+    Migrate resolution types from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_tipo_delibera = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_DELIBERA",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_tipo_delibera = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_DELIBERA"
     )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_delibera.height} from table "AUAC_USR.TIPO_DELIBERA"'
-    )
-    df_tipo_atto = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_ATTO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_atto.height} from table "AUAC_USR.TIPO_ATTO"'
+
+    df_tipo_atto = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_ATTO"
     )
 
     ### TRANSFORM ###
@@ -76,63 +75,46 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
     df_result = df_result.unique("name")
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="resolution_types",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "resolution_types"')
+    load_data(ctx, df_result, "resolution_types")
 
 
 def migrate_resolutions(ctx: ETLContext) -> None:
+    """
+    Migrate resolutions from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_delibera_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.DELIBERA_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_delibera_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.DELIBERA_TEMPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_delibera_templ.height} from table "AUAC_USR.DELIBERA_TEMPL"'
+
+    df_atto_model = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.ATTO_MODEL"
     )
-    df_atto_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.ATTO_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_tipo_proc_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_atto_model.height} from table "AUAC_USR.ATTO_MODEL"'
+
+    df_tipo_delibera = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_DELIBERA"
     )
-    df_tipo_proc_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_tipo_atto = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_ATTO"
     )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_proc_templ.height} from table "AUAC_USR.TIPO_PROC_TEMPL"'
-    )
-    df_tipo_delibera = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_DELIBERA",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_delibera.height} from table "AUAC_USR.TIPO_DELIBERA"'
-    )
-    df_tipo_atto = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_ATTO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_atto.height} from table "AUAC_USR.TIPO_ATTO"'
-    )
-    df_resolution_types = pl.read_database(
+
+    df_resolution_types = extract_data(
+        ctx,
         "SELECT * FROM resolution_types",
-        connection=ctx.pg_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_resolution_types.height} from table "resolution_types"'
+        source="pg"
     )
 
     ### TRANSFORM ###
@@ -311,9 +293,4 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_result = pl.concat([df_delibera_templ, df_result], how="vertical_relaxed")
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="resolutions",
-        connection=ctx.pg_engine,
-        if_table_exists="append"
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "resolutions"')
+    load_data(ctx, df_result, "resolutions")

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext
+from core import ETLContext, extract_data, load_data
 
 
 MUNICIPALITY_MAPPING = {
@@ -108,14 +108,16 @@ def normalize_municipality_name(name: str) -> str:
 
 
 def migrate_company_types(ctx: ETLContext) -> None:
+    """
+    Migrate company types from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_company_types = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_company_types.height} from table "AUAC_USR.TIPO_TITOLARE_TEMPL"'
+    df_company_types = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -152,53 +154,46 @@ def migrate_company_types(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="company_types", connection=ctx.pg_engine, if_table_exists="append"
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "company_types"')
+    load_data(ctx, df_result, "company_types")
 
 
 def migrate_companies(ctx: ETLContext) -> None:
+    """
+    Migrate companies from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_titolare_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.TITOLARE_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_titolare_model = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TITOLARE_MODEL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_titolare_model.height} from table "AUAC_USR.TITOLARE_MODEL"'
-    )
-    df_tipologia_richiedente = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_tipologia_richiedente = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE"
     ).select(
         pl.col("CLIENTID").alias("ID_TIPO_RICH_FK"),
         pl.col("DESCR").alias("company_legal_form"),
     )
-    logging.info(
-        f'⛏️ Extracted {df_tipologia_richiedente.height} from table "AUAC_USR.TIPOLOGIA_RICHIEDENTE"'
-    )
-    df_natura_titolare_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_natura_titolare_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
     ).select(
         pl.col("CLIENTID").alias("ID_NATURA_FK"),
         pl.col("DESCR").alias("company_nature"),
     )
-    logging.info(
-        f'⛏️ Extracted {df_natura_titolare_templ.height} from table "AUAC_USR.NATURA_TITOLARE_TEMPL"'
-    )
-    df_municipalities = pl.read_database(
+
+    df_municipalities = extract_data(
+        ctx,
         "SELECT * FROM municipalities",
-        connection=ctx.pg_engine.connect(),
-        infer_schema_length=None,
+        source="pg"
     ).select(
         pl.col("id").alias("municipality_id"),
         pl.col("istat_code"),
     )
-    logging.info(f'⛏️ Extracted {df_municipalities.height} from table "municipalities"')
 
     ### TRANSFORM ###
     df_result = df_titolare_model.join(
@@ -274,21 +269,20 @@ def migrate_companies(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="companies", connection=ctx.pg_engine, if_table_exists="append"
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "companies"')
+    load_data(ctx, df_result, "companies")
 
 
 def migrate_physical_structures(ctx: ETLContext) -> None:
+    """
+    Migrate physical structures from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_struttura_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_struttura_model.height} from table "AUAC_USR.STRUTTURA_MODEL"'
+    df_struttura_model = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL"
     )
 
     ### TRANSFORM ###
@@ -338,43 +332,37 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="physical_structures",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "physical_structures"')
+    load_data(ctx, df_result, "physical_structures")
 
 
 def migrate_operational_offices(ctx: ETLContext) -> None:
+    """
+    Migrate operational offices from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_sede_oper_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_sede_oper_model = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_sede_oper_model.height} from table "AUAC_USR.SEDE_OPER_MODEL"'
-    )
-    df_municipalities = pl.read_database(
+
+    df_municipalities = extract_data(
+        ctx,
         "SELECT * FROM municipalities",
-        connection=ctx.pg_engine.connect(),
-        infer_schema_length=None,
+        source="pg"
     ).select(
         pl.col("id"),
         pl.col("name").str.to_lowercase().alias("municipality_name"),
     )
-    logging.info(f'⛏️ Extracted {df_municipalities.height} from table "municipalities"')
-    df_tipo_punto_fisico_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_tipo_punto_fisico_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"
     ).select(
         pl.col("CLIENTID"),
         pl.col("NOME"),
-    )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_punto_fisico_templ.height} from table "AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"'
     )
 
     ### TRANSFORM ###
@@ -449,23 +437,20 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
     df_result = df_result.unique(subset=["id"], keep="first")
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="operational_offices",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "operational_offices"')
+    load_data(ctx, df_result, "operational_offices")
 
 
 def migrate_buildings(ctx: ETLContext) -> None:
+    """
+    Migrate buildings from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_edificio_str_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_edificio_str_templ.height} from table "AUAC_USR.EDIFICIO_STR_TEMPL"'
+    df_edificio_str_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -523,9 +508,4 @@ def migrate_buildings(ctx: ETLContext) -> None:
     df_result = df_result.filter(pl.col("id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="buildings",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "buildings"')
+    load_data(ctx, df_result, "buildings")

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext
+from core import ETLContext, extract_data, load_data
 
 
 def map_macroarea(value: str | None) -> str | None:
@@ -39,25 +39,24 @@ def map_specialty_type(value: str) -> str | None:
 
 
 def migrate_grouping_specialties(ctx: ETLContext) -> None:
+    """
+    Migrate grouping specialties from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_ragg_discpl = pl.read_database(
-        "SELECT * FROM AUAC_USR.RAGG_DISCPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_ragg_discpl = extract_data(
+        ctx, 
+        "SELECT * FROM AUAC_USR.RAGG_DISCPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_ragg_discpl.height} from table "AUAC_USR.RAGG_DISCPL"'
-    )
-    df_macroarea_programmazione = pl.read_database(
-        "SELECT * FROM AUAC_USR.MACROAREA_PROGRAMMAZIONE",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_macroarea_programmazione = extract_data(
+        ctx, 
+        "SELECT * FROM AUAC_USR.MACROAREA_PROGRAMMAZIONE"
     ).select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("ID_MACROAREA_FK"),
         pl.col("NOME").str.strip_chars().alias("macroarea"),
-    )
-    logging.info(
-        f'⛏️ Extracted {df_macroarea_programmazione.height} from table "AUAC_USR.MACROAREA_PROGRAMMAZIONE"'
     )
 
     ### TRANSFORM ###
@@ -95,39 +94,30 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="grouping_specialties",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "grouping_specialties"')
+    load_data(ctx, df_result, "grouping_specialties")
 
 
 def migrate_specialties(ctx: ETLContext) -> None:
+    """
+    Migrate specialties from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_disciplina_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_disciplina_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_disciplina_templ.height} from table "AUAC_USR.TOPONIMO_TEMPL"'
+
+    df_branca_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BRANCA_TEMPL"
     )
-    df_branca_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.BRANCA_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_branca_templ.height} from table "AUAC_USR.BRANCA_TEMPL"'
-    )
-    df_artic_branca_altro_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_artic_branca_altro_templ.height} from table "AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"'
+
+    df_artic_branca_altro_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -260,9 +250,4 @@ def migrate_specialties(ctx: ETLContext) -> None:
     df_result = df_result.unique(subset=["name", "code"], keep="first")
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="specialties",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "specialties"')
+    load_data(ctx, df_result, "specialties")

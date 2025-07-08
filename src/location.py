@@ -3,34 +3,54 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext
+from core import ETLContext, extract_data, extract_data_from_csv, load_data
 
 
-def migrate_regions_provinces_municipalities(ctx: ETLContext) -> None:
-    for file_name, table in [
-        ("regions.csv", "regions"),
-        ("provinces.csv", "provinces"),
-        ("municipalities.csv", "municipalities"),
-    ]:
-        schema_overrides = (
-            {"istat_code": pl.String} if "municipalities" in file_name else None
-        )
-        df = pl.read_csv(f"seed/{file_name}", schema_overrides=schema_overrides)
-        df.write_database(
-            table_name=table, connection=ctx.pg_engine, if_table_exists="append"
-        )
-        logging.info(f"Loaded seed data into {table}")
+def migrate_regions(ctx: ETLContext) -> None:
+    """
+    Migrate regions from seed CSV file to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
+    df = extract_data_from_csv("seed/regions.csv")
+    load_data(ctx, df, "regions")
+
+
+def migrate_provinces(ctx: ETLContext) -> None:
+    """
+    Migrate provinces from seed CSV file to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
+    df = extract_data_from_csv("seed/provinces.csv")
+    load_data(ctx, df, "provinces")
+
+
+def migrate_municipalities(ctx: ETLContext) -> None:
+    """
+    Migrate municipalities from seed CSV file to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
+    schema_overrides = {"istat_code": pl.String}
+    df = extract_data_from_csv("seed/municipalities.csv", schema_overrides=schema_overrides)
+    load_data(ctx, df, "municipalities")
 
 
 def migrate_toponyms(ctx: ETLContext) -> None:
+    """
+    Migrate toponyms from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_toponimo_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_toponimo_templ.height} from table "AUAC_USR.TOPONIMO_TEMPL"'
+    df_toponimo_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -59,7 +79,4 @@ def migrate_toponyms(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="toponyms", connection=ctx.pg_engine, if_table_exists="append"
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "toponyms"')
+    load_data(ctx, df_result, "toponyms")

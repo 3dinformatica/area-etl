@@ -5,18 +5,20 @@ import polars as pl
 import pandas as pd
 import json
 
-from core import ETLContext
+from core import ETLContext, extract_data, load_data
 
 
 def migrate_production_factor_types(ctx: ETLContext) -> None:
+    """
+    Migrate production factor types from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_tipo_fattore_prod_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_FATTORE_PROD_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_fattore_prod_templ.height} from table "AUAC_USR.TIPO_FATTORE_PROD_TEMPL"'
+    df_tipo_fattore_prod_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_FATTORE_PROD_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -55,23 +57,20 @@ def migrate_production_factor_types(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="production_factor_types",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "production_factor_types"')
+    load_data(ctx, df_result, "production_factor_types")
 
 
 def migrate_production_factors(ctx: ETLContext) -> None:
+    """
+    Migrate production factors from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_fatt_prod_udo_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.FATT_PROD_UDO_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_fatt_prod_udo_model.height} from table "AUAC_USR.FATT_PROD_UDO_MODEL"'
+    df_fatt_prod_udo_model = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.FATT_PROD_UDO_MODEL"
     )
 
     ### TRANSFORM ###
@@ -122,71 +121,47 @@ def migrate_production_factors(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="production_factors",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "production_factors"')
+    load_data(ctx, df_result, "production_factors")
 
 
 def migrate_udo_types(ctx: ETLContext) -> None:
+    """
+    Migrate UDO types from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_tipo_udo_22_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.TIPO_UDO_22_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_tipo_udo_22_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TIPO_UDO_22_TEMPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_tipo_udo_22_templ.height} from table "AUAC_USR.TIPO_UDO_22_TEMPL"'
+    df_bind_tipo_22_ambito = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_TIPO_22_AMBITO"
     )
-    df_bind_tipo_22_ambito = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_TIPO_22_AMBITO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_ambito_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.AMBITO_TEMPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_bind_tipo_22_ambito.height} from table "AUAC_USR.BIND_TIPO_22_AMBITO"'
+    df_bind_tipo_22_natura = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_TIPO_22_NATURA"
     )
-    df_ambito_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.AMBITO_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+
+    df_natura_titolare_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
     )
-    logging.info(
-        f'⛏️ Extracted {df_ambito_templ.height} from table "AUAC_USR.AMBITO_TEMPL"'
+    df_bind_tipo_22_flusso = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_TIPO_22_FLUSSO"
     )
-    df_bind_tipo_22_natura = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_TIPO_22_NATURA",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_bind_tipo_22_natura.height} from table "AUAC_USR.BIND_TIPO_22_NATURA"'
-    )
-    df_natura_titolare_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_natura_titolare_templ.height} from table "AUAC_USR.NATURA_TITOLARE_TEMPL"'
-    )
-    df_bind_tipo_22_flusso = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_TIPO_22_FLUSSO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_bind_tipo_22_flusso.height} from table "AUAC_USR.BIND_TIPO_22_FLUSSO"'
-    )
-    df_flusso_templ = pl.read_database(
-        "SELECT * FROM AUAC_USR.FLUSSO_TEMPL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_flusso_templ.height} from table "AUAC_USR.FLUSSO_TEMPL"'
+
+    df_flusso_templ = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.FLUSSO_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -468,121 +443,26 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    # Convert to pandas first to have more control over the data types
-    logging.info("Converting to pandas dataframe")
-    pandas_df = df_result.to_pandas()
+    # Convert array columns to Python lists to ensure compatibility with PostgreSQL
+    df_result = df_result.with_columns([
+        pl.col("company_natures").map_elements(lambda x: [str(item) for item in x if item is not None] if x is not None else [], return_dtype=pl.List),
+        pl.col("ministerial_flows").map_elements(lambda x: [str(item) for item in x if item is not None] if x is not None else [], return_dtype=pl.List)
+    ])
 
-    # Explicitly convert array columns to Python lists via JSON serialization/deserialization
-    # This ensures we completely break any reference to NumPy arrays
-    logging.info("Converting array columns to Python lists")
-
-    def safe_convert_to_list(x):
-        if x is None:
-            return []
-        try:
-            # Convert to JSON and back to ensure we have pure Python types
-            json_str = json.dumps([str(item) for item in x if item is not None])
-            return json.loads(json_str)
-        except Exception as e:
-            logging.warning(f"Error converting to list: {e}, value: {repr(x)}, type: {type(x)}")
-            # Fallback: try direct conversion
-            try:
-                if hasattr(x, 'tolist'):
-                    return [str(item) for item in x.tolist() if item is not None]
-                elif hasattr(x, '__iter__'):
-                    return [str(item) for item in list(x) if item is not None]
-                else:
-                    return []
-            except Exception as e2:
-                logging.warning(f"Fallback conversion also failed: {e2}")
-                return []
-
-    # Log sample values before conversion
-    for col in ['company_natures', 'ministerial_flows']:
-        if not pandas_df.empty:
-            sample = pandas_df[col].iloc[0]
-            logging.info(f"Sample {col} before conversion: {repr(sample)}, type: {type(sample)}")
-
-    # Apply the conversion
-    pandas_df['company_natures'] = pandas_df['company_natures'].apply(safe_convert_to_list)
-    pandas_df['ministerial_flows'] = pandas_df['ministerial_flows'].apply(safe_convert_to_list)
-
-    # Log sample values after conversion
-    for col in ['company_natures', 'ministerial_flows']:
-        if not pandas_df.empty:
-            sample = pandas_df[col].iloc[0]
-            logging.info(f"Sample {col} after conversion: {repr(sample)}, type: {type(sample)}")
-
-    # Log the data types to verify conversion
-    logging.info(f"company_natures data type: {type(pandas_df['company_natures'].iloc[0]).__name__}")
-    logging.info(f"ministerial_flows data type: {type(pandas_df['ministerial_flows'].iloc[0]).__name__}")
-
-    # Final check: ensure array columns are properly formatted for PostgreSQL
-    # PostgreSQL expects array columns to be Python lists, not NumPy arrays or other types
-    logging.info("Final check of array columns")
-
-    # Convert empty arrays to None to avoid PostgreSQL issues
-    for col in ['company_natures', 'ministerial_flows']:
-        pandas_df[col] = pandas_df[col].apply(lambda x: None if len(x) == 0 else x)
-
-    # Create a copy of the dataframe with array columns converted to strings for fallback
-    pandas_df_str = pandas_df.copy()
-    pandas_df_str['company_natures'] = pandas_df_str['company_natures'].apply(lambda x: json.dumps(x) if x is not None else None)
-    pandas_df_str['ministerial_flows'] = pandas_df_str['ministerial_flows'].apply(lambda x: json.dumps(x) if x is not None else None)
-
-    try:
-        # Try writing to database using pandas to_sql
-        logging.info("Writing to database")
-        pandas_df.to_sql(
-            name="udo_types",
-            con=ctx.pg_engine,
-            schema=None,
-            if_exists="append",
-            index=False,
-            method='multi'  # Use multi-row insert for better performance
-        )
-        logging.info(f'⬆️ Loaded {len(pandas_df)} rows to table "udo_types"')
-    except Exception as e:
-        logging.error(f"Error writing to udo_types table: {e}", exc_info=True)
-
-        # Try fallback with string columns
-        logging.warning("Trying fallback with string columns")
-        try:
-            pandas_df_str.to_sql(
-                name="udo_types",
-                con=ctx.pg_engine,
-                schema=None,
-                if_exists="append",
-                index=False,
-                method='multi'
-            )
-            logging.info(f'⬆️ Loaded {len(pandas_df_str)} rows to table "udo_types" using fallback method')
-            return  # Exit function if fallback succeeds
-        except Exception as e2:
-            logging.error(f"Fallback also failed: {e2}", exc_info=True)
-
-        # Additional error diagnostics
-        try:
-            # Sample the data to see what's causing the issue
-            for col in ['company_natures', 'ministerial_flows']:
-                if not pandas_df.empty:
-                    sample_val = pandas_df[col].iloc[0]
-                    logging.error(f"Sample value for {col}: {repr(sample_val)}, type: {type(sample_val)}")
-                    if hasattr(sample_val, '__iter__') and not isinstance(sample_val, str):
-                        for i, item in enumerate(sample_val):
-                            logging.error(f"  Item {i}: {repr(item)}, type: {type(item)}")
-        except Exception as diagnostic_error:
-            logging.error(f"Error during diagnostics: {diagnostic_error}")
-
-        raise
+    load_data(ctx, df_result, "udo_types")
 
 
 def migrate_udo_production_factors(ctx: ETLContext) -> None:
+    """
+    Migrate UDO production factors from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_bind_udo_fatt_prod = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_UDO_FATT_PROD",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_bind_udo_fatt_prod = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_UDO_FATT_PROD"
     )
 
     ### TRANSFORM ###
@@ -592,20 +472,20 @@ def migrate_udo_production_factors(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udo_production_factors",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info("Migrated udo_production_factors")
+    load_data(ctx, df_result, "udo_production_factors")
 
 
 def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
+    """
+    Migrate UDO type production factor types from Oracle to PostgreSQL.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_bind_tipo_22_tipo_fatt = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_TIPO_22_TIPO_FATT",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
+    df_bind_tipo_22_tipo_fatt = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_TIPO_22_TIPO_FATT"
     )
 
     ### TRANSFORM ###
@@ -615,12 +495,7 @@ def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udo_type_production_factor_types",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info("Migrated udo_type_production_factor_types")
+    load_data(ctx, df_result, "udo_type_production_factor_types")
 
 
 def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
@@ -628,24 +503,19 @@ def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
     Migrates branches data to specialties.
     This replaces the old migrate_udo_branches function as disciplines and branches
     have been merged into specialties.
+
+    Args:
+        ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_bind_udo_branca = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_bind_udo_branca.height} from table "AUAC_USR.BIND_UDO_BRANCA"'
+    df_bind_udo_branca = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA"
     )
 
-    df_bind_udo_branca_altro = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_bind_udo_branca_altro.height} from table "AUAC_USR.BIND_UDO_BRANCA_ALTRO"'
+    df_bind_udo_branca_altro = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO"
     )
 
     ### TRANSFORM ###
@@ -679,27 +549,21 @@ def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
     df_result = pl.concat([df_bind_udo_branca, df_bind_udo_branca_altro])
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udo_specialties",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_specialties"')
+    load_data(ctx, df_result, "udo_specialties")
 
 
 def migrate_udo_specialties_from_disciplines(ctx: ETLContext) -> None:
     """
     Migrates disciplines data to specialties.
     Disciplines and branches have been merged into specialties.
+
+    Args:
+        ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_bind_udo_disciplina = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_bind_udo_disciplina.height} from table "AUAC_USR.BIND_UDO_DISCIPLINA"'
+    df_bind_udo_disciplina = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA"
     )
 
     ### TRANSFORM ###
@@ -712,12 +576,10 @@ def migrate_udo_specialties_from_disciplines(ctx: ETLContext) -> None:
     # We'll use a direct query approach to avoid the need for oracle_poa_engine
     df_uo_model_map = None
     try:
-        df_uo_model_map = pl.read_database(
-            "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL",
-            connection=ctx.oracle_engine.connect(),
-            infer_schema_length=None,
+        df_uo_model_map = extract_data(
+            ctx,
+            "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL"
         )
-        logging.info(f'⛏️ Extracted UO_MODEL mapping data')
     except Exception as e:
         logging.warning(f"Could not extract UO_MODEL data: {e}")
         df_uo_model_map = pl.DataFrame({"ID_UO": [], "CLIENTID": []})
@@ -769,26 +631,20 @@ def migrate_udo_specialties_from_disciplines(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udo_specialties",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_specialties"')
+    load_data(ctx, df_result, "udo_specialties")
 
 
 def migrate_udo_resolutions(ctx: ETLContext) -> None:
     """
     Migrates resolution data for UDOs.
+
+    Args:
+        ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_bind_atto_udo = pl.read_database(
-        "SELECT * FROM AUAC_USR.BIND_ATTO_UDO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_bind_atto_udo.height} from table "AUAC_USR.BIND_ATTO_UDO"'
+    df_bind_atto_udo = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.BIND_ATTO_UDO"
     )
 
     ### TRANSFORM ###
@@ -798,47 +654,33 @@ def migrate_udo_resolutions(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udo_resolutions",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_resolutions"')
+    load_data(ctx, df_result, "udo_resolutions")
 
 
 def migrate_udo_status_history(ctx: ETLContext) -> None:
     """
     Migrates UDO status history data.
+
+    Args:
+        ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
     # Extract main status data
-    df_stato_udo = pl.read_database(
-        "SELECT * FROM AUAC_USR.STATO_UDO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_stato_udo.height} from table "AUAC_USR.STATO_UDO"'
+    df_stato_udo = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.STATO_UDO"
     )
 
     # Extract UDO data for supply information
-    df_udo = pl.read_database(
-        "SELECT CLIENTID, EROGAZIONE_DIRETTA, EROGAZIONE_INDIRETTA FROM AUAC_USR.UDO_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted supply data from "AUAC_USR.UDO_MODEL"'
+    df_udo = extract_data(
+        ctx,
+        "SELECT CLIENTID, EROGAZIONE_DIRETTA, EROGAZIONE_INDIRETTA FROM AUAC_USR.UDO_MODEL"
     )
 
     # Extract bed history data
-    df_beds = pl.read_database(
-        "SELECT ID_STATO_UDO_FK, PL, PLEX, PLOB FROM AUAC_USR.STORICO_POSTI_LETTO",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted bed history data from "AUAC_USR.STORICO_POSTI_LETTO"'
+    df_beds = extract_data(
+        ctx,
+        "SELECT ID_STATO_UDO_FK, PL, PLEX, PLOB FROM AUAC_USR.STORICO_POSTI_LETTO"
     )
 
     ### TRANSFORM ###
@@ -948,67 +790,47 @@ def migrate_udo_status_history(ctx: ETLContext) -> None:
         return
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udo_status_history",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_status_history"')
+    load_data(ctx, df_result, "udo_status_history")
 
 
 def migrate_udos(ctx: ETLContext) -> None:
     """
     Migrates UDO data from UDO_MODEL to udos table.
+
+    Args:
+        ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
     # Extract main UDO data
-    df_udo_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.UDO_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted {df_udo_model.height} from table "AUAC_USR.UDO_MODEL"'
+    df_udo_model = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.UDO_MODEL"
     )
 
     # Extract operational office data
-    df_sede_oper = pl.read_database(
-        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted data from "AUAC_USR.SEDE_OPER_MODEL"'
+    df_sede_oper = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL"
     )
 
     # Extract structure data
-    df_struttura = pl.read_database(
-        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted data from "AUAC_USR.STRUTTURA_MODEL"'
+    df_struttura = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL"
     )
 
     # Extract company data
-    df_titolare = pl.read_database(
-        "SELECT * FROM AUAC_USR.TITOLARE_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    logging.info(
-        f'⛏️ Extracted data from "AUAC_USR.TITOLARE_MODEL"'
+    df_titolare = extract_data(
+        ctx,
+        "SELECT * FROM AUAC_USR.TITOLARE_MODEL"
     )
 
     # Extract UO_MODEL data for operational units
     try:
-        df_uo_model = pl.read_database(
-            "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL",
-            connection=ctx.oracle_engine.connect(),
-            infer_schema_length=None,
+        df_uo_model = extract_data(
+            ctx,
+            "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL"
         )
-        logging.info(f'⛏️ Extracted UO_MODEL mapping data')
     except Exception as e:
         logging.warning(f"Could not extract UO_MODEL data: {e}")
         df_uo_model = pl.DataFrame({"ID_UO": [], "CLIENTID": []})
@@ -1178,9 +1000,4 @@ def migrate_udos(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="udos",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udos"')
+    load_data(ctx, df_result, "udos")
