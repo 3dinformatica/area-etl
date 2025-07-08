@@ -14,14 +14,16 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
         infer_schema_length=None,
     )
     logging.info(
-        f'Extracted {df_tipo_delibera.height} rows from "AUAC_USR.TIPO_DELIBERA"'
+        f'⛏️ Extracted {df_tipo_delibera.height} from table "AUAC_USR.TIPO_DELIBERA"'
     )
     df_tipo_atto = pl.read_database(
         "SELECT * FROM AUAC_USR.TIPO_ATTO",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
-    logging.info(f'Extracted {df_tipo_atto.height} rows from "AUAC_USR.TIPO_ATTO"')
+    logging.info(
+        f'⛏️ Extracted {df_tipo_atto.height} from table "AUAC_USR.TIPO_ATTO"'
+    )
 
     ### TRANSFORM ###
     df_tipo_delibera = df_tipo_delibera.select(
@@ -79,7 +81,7 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info(f'Loaded {df_result.height} rows into table "resolution_types"')
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "resolution_types"')
 
 
 def migrate_resolutions(ctx: ETLContext) -> None:
@@ -90,21 +92,23 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         infer_schema_length=None,
     )
     logging.info(
-        f'Extracted {df_delibera_templ.height} rows from "AUAC_USR.DELIBERA_TEMPL"'
+        f'⛏️ Extracted {df_delibera_templ.height} from table "AUAC_USR.DELIBERA_TEMPL"'
     )
     df_atto_model = pl.read_database(
         "SELECT * FROM AUAC_USR.ATTO_MODEL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
-    logging.info(f'Extracted {df_atto_model.height} rows from "AUAC_USR.ATTO_MODEL"')
+    logging.info(
+        f'⛏️ Extracted {df_atto_model.height} from table "AUAC_USR.ATTO_MODEL"'
+    )
     df_tipo_proc_templ = pl.read_database(
         "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
     logging.info(
-        f'Extracted {df_atto_model.height} rows from "AUAC_USR.TIPO_PROC_TEMPL"'
+        f'⛏️ Extracted {df_tipo_proc_templ.height} from table "AUAC_USR.TIPO_PROC_TEMPL"'
     )
     df_tipo_delibera = pl.read_database(
         "SELECT * FROM AUAC_USR.TIPO_DELIBERA",
@@ -112,25 +116,31 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         infer_schema_length=None,
     )
     logging.info(
-        f'Extracted {df_tipo_delibera.height} rows from "AUAC_USR.TIPO_DELIBERA"'
+        f'⛏️ Extracted {df_tipo_delibera.height} from table "AUAC_USR.TIPO_DELIBERA"'
     )
     df_tipo_atto = pl.read_database(
         "SELECT * FROM AUAC_USR.TIPO_ATTO",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
-    logging.info(f'Extracted {df_tipo_atto.height} rows from "AUAC_USR.TIPO_ATTO"')
+    logging.info(
+        f'⛏️ Extracted {df_tipo_atto.height} from table "AUAC_USR.TIPO_ATTO"'
+    )
     df_resolution_types = pl.read_database(
         "SELECT * FROM resolution_types",
         connection=ctx.pg_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_resolution_types.height} from table "resolution_types"'
+    )
+
+    ### TRANSFORM ###
+    # Column "id" is read as an object an not as a string
     df_resolution_types = df_resolution_types.to_pandas()
     df_resolution_types["id"] = df_resolution_types["id"].astype("string")
     df_resolution_types = pl.from_pandas(df_resolution_types)
-    logging.info(f'Extracted {df_resolution_types.height} rows from "resolution_types"')
 
-    ### TRANSFORM ###
     df_delibera_templ = df_delibera_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().alias("name"),
@@ -302,6 +312,8 @@ def migrate_resolutions(ctx: ETLContext) -> None:
 
     ### LOAD ###
     df_result.write_database(
-        table_name="resolutions", connection=ctx.pg_engine, if_table_exists="append"
+        table_name="resolutions",
+        connection=ctx.pg_engine,
+        if_table_exists="append"
     )
-    logging.info(f'Loaded {df_result.height} rows into table "resolutions"')
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "resolutions"')
