@@ -23,12 +23,18 @@ def migrate_regions_provinces_municipalities(ctx: ETLContext) -> None:
 
 
 def migrate_toponyms(ctx: ETLContext) -> None:
-    df = pl.read_database(
-        "SELECT * FROM TOPONIMO_TEMPL",
+    ### EXTRACT ###
+    df_toponimo_templ = pl.read_database(
+        "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
-    result = df.select(
+    logging.info(
+        f'⛏️ Extracted {df_toponimo_templ.height} from table "AUAC_USR.TOPONIMO_TEMPL"'
+    )
+
+    ### TRANSFORM ###
+    df_result = df_toponimo_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("CREATION")
@@ -51,7 +57,9 @@ def migrate_toponyms(ctx: ETLContext) -> None:
         .otherwise(None)
         .alias("disabled_at"),
     )
-    result.write_database(
+
+    ### LOAD ###
+    df_result.write_database(
         table_name="toponyms", connection=ctx.pg_engine, if_table_exists="append"
     )
-    logging.info("Migrated toponyms")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "toponyms"')
