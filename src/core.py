@@ -61,7 +61,6 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
             "udo_types",
             "udo_production_factors",
             "udo_type_production_factor_types",
-            "udo_branches",
             "resolutions",
             "resolution_types",
         ]
