@@ -35,19 +35,19 @@ def migrate_production_factor_types(ctx: ETLContext) -> None:
         pl.col("TIPOLOGIA_FATT_PROD").str.strip_chars().alias("category"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("created_at"),
         pl.col("LAST_MOD")
         .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("updated_at"),
         pl.when(pl.col("DISABLED") == "S")
         .then(
             pl.col("LAST_MOD")
             .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
             .dt.replace_time_zone(None)
         )
         .otherwise(None)
@@ -102,19 +102,19 @@ def migrate_production_factors(ctx: ETLContext) -> None:
         pl.col("DESCR").str.strip_chars().replace(["NUL"], None).alias("room_code"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("created_at"),
         pl.col("LAST_MOD")
         .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("updated_at"),
         pl.when(pl.col("DISABLED") == "S")
         .then(
             pl.col("LAST_MOD")
             .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
             .dt.replace_time_zone(None)
         )
         .otherwise(None)
@@ -450,19 +450,19 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         .then(
             pl.col("LAST_MOD")
             .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
             .dt.replace_time_zone(None)
         )
         .otherwise(None)
         .alias("disabled_at"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("created_at"),
         pl.col("LAST_MOD")
         .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("updated_at"),
     )
@@ -623,40 +623,564 @@ def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
     logging.info("Migrated udo_type_production_factor_types")
 
 
-def migrate_udo_branches(ctx: ETLContext) -> None:
+def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
+    """
+    Migrates branches data to specialties.
+    This replaces the old migrate_udo_branches function as disciplines and branches
+    have been merged into specialties.
+    """
     ### EXTRACT ###
     df_bind_udo_branca = pl.read_database(
         "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_bind_udo_branca.height} from table "AUAC_USR.BIND_UDO_BRANCA"'
+    )
+
     df_bind_udo_branca_altro = pl.read_database(
         "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO",
         connection=ctx.oracle_engine.connect(),
         infer_schema_length=None,
     )
+    logging.info(
+        f'⛏️ Extracted {df_bind_udo_branca_altro.height} from table "AUAC_USR.BIND_UDO_BRANCA_ALTRO"'
+    )
 
     ### TRANSFORM ###
+    # Process main branch data
     df_bind_udo_branca = df_bind_udo_branca.select(
-        pl.col("ID_BRANCA_FK"),
-        pl.col("ID_UDO_FK"),
-        pl.col("AUTORIZZATA"),
-        pl.col("ACCREDITATA"),
+        pl.col("ID_BRANCA_FK").str.strip_chars().alias("specialty_id"),
+        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
+        pl.when(pl.col("AUTORIZZATA").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
+        .then(True)
+        .otherwise(False)
+        .alias("is_authorized"),
+        pl.when(pl.col("ACCREDITATA").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
+        .then(True)
+        .otherwise(False)
+        .alias("is_accredited"),
     )
+
+    # Process alternative branch data
     df_bind_udo_branca_altro = df_bind_udo_branca_altro.select(
-        pl.col("ID_UDO_FK"),
-        pl.col("ID_ARTIC_BRANCA_ALTRO_FK").alias("ID_BRANCA_FK"),
+        pl.col("ID_ARTIC_BRANCA_ALTRO_FK").str.strip_chars().alias("specialty_id"),
+        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
     )
-    df_result = df_bind_udo_branca.join(
-        df_bind_udo_branca_altro,
-        on=["ID_BRANCA_FK", "ID_UDO_FK"],
-        how="left",
+
+    # Add default values for missing columns in the alternative branch data
+    df_bind_udo_branca_altro = df_bind_udo_branca_altro.with_columns(
+        pl.lit(False).alias("is_authorized"),
+        pl.lit(False).alias("is_accredited"),
+    )
+
+    # Combine both dataframes
+    df_result = pl.concat([df_bind_udo_branca, df_bind_udo_branca_altro])
+
+    ### LOAD ###
+    df_result.write_database(
+        table_name="udo_specialties",
+        connection=ctx.pg_engine,
+        if_table_exists="append",
+    )
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_specialties"')
+
+
+def migrate_udo_specialties_from_disciplines(ctx: ETLContext) -> None:
+    """
+    Migrates disciplines data to specialties.
+    Disciplines and branches have been merged into specialties.
+    """
+    ### EXTRACT ###
+    df_bind_udo_disciplina = pl.read_database(
+        "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_bind_udo_disciplina.height} from table "AUAC_USR.BIND_UDO_DISCIPLINA"'
+    )
+
+    ### TRANSFORM ###
+    # Filter out rows with null discipline IDs
+    df_bind_udo_disciplina = df_bind_udo_disciplina.filter(
+        pl.col("ID_DISCIPLINA_FK").is_not_null()
+    )
+
+    # Process UO_MODEL data for clinical operational units
+    # We'll use a direct query approach to avoid the need for oracle_poa_engine
+    df_uo_model_map = None
+    try:
+        df_uo_model_map = pl.read_database(
+            "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL",
+            connection=ctx.oracle_engine.connect(),
+            infer_schema_length=None,
+        )
+        logging.info(f'⛏️ Extracted UO_MODEL mapping data')
+    except Exception as e:
+        logging.warning(f"Could not extract UO_MODEL data: {e}")
+        df_uo_model_map = pl.DataFrame({"ID_UO": [], "CLIENTID": []})
+
+    # Transform the main data
+    df_result = df_bind_udo_disciplina.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("ID_DISCIPLINA_FK").str.strip_chars().alias("specialty_id"),
+        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
+        pl.col("POSTI_LETTO").cast(pl.UInt16, strict=False).fill_null(0).alias("beds"),
+        pl.col("POSTI_LETTO_EXTRA").cast(pl.UInt16, strict=False).fill_null(0).alias("extra_beds"),
+        pl.col("POSTI_LETTO_OBI").cast(pl.UInt16, strict=False).fill_null(0).alias("mortuary_beds"),
+        pl.col("POSTI_LETTO_ACC").cast(pl.UInt16, strict=False).fill_null(0).alias("accredited_beds"),
+        pl.col("HSP12").str.strip_chars().alias("hsp12"),
+        pl.col("ID_UO").alias("ID_UO"),
+        pl.col("PROVENIENZA_UO").alias("PROVENIENZA_UO"),
+    )
+
+    # Join with UO_MODEL data if available
+    if df_uo_model_map is not None and df_uo_model_map.height > 0:
+        df_result = df_result.join(
+            df_uo_model_map,
+            left_on="ID_UO",
+            right_on="ID_UO",
+            how="left",
+        ).with_columns(
+            pl.col("CLIENTID").alias("clinical_operational_unit_id")
+        )
+
+    # Since we don't have access to the V_NODI table through oracle_poa_engine,
+    # we'll skip that part and just set clinical_organigram_node_id to null
+
+    # Drop unnecessary columns and rename the rest
+    df_result = df_result.drop(["ID_UO", "PROVENIENZA_UO"])
+
+    # Ensure CLIENTID from UO_MODEL is not included in the final dataframe
+    if "CLIENTID" in df_result.columns:
+        df_result = df_result.drop("CLIENTID")
+
+    # Handle any null values in the clinical_operational_unit_id column
+    if "clinical_operational_unit_id" not in df_result.columns:
+        df_result = df_result.with_columns(
+            pl.lit(None).alias("clinical_operational_unit_id")
+        )
+
+    # Add clinical_organigram_node_id column with null values
+    df_result = df_result.with_columns(
+        pl.lit(None).alias("clinical_organigram_node_id")
     )
 
     ### LOAD ###
     df_result.write_database(
-        table_name="udo_branches",
+        table_name="udo_specialties",
         connection=ctx.pg_engine,
         if_table_exists="append",
     )
-    logging.info("Migrated udo_branches")
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_specialties"')
+
+
+def migrate_udo_resolutions(ctx: ETLContext) -> None:
+    """
+    Migrates resolution data for UDOs.
+    """
+    ### EXTRACT ###
+    df_bind_atto_udo = pl.read_database(
+        "SELECT * FROM AUAC_USR.BIND_ATTO_UDO",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_bind_atto_udo.height} from table "AUAC_USR.BIND_ATTO_UDO"'
+    )
+
+    ### TRANSFORM ###
+    df_result = df_bind_atto_udo.select(
+        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
+        pl.col("ID_ATTO_FK").str.strip_chars().alias("resolution_id"),
+    )
+
+    ### LOAD ###
+    df_result.write_database(
+        table_name="udo_resolutions",
+        connection=ctx.pg_engine,
+        if_table_exists="append",
+    )
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_resolutions"')
+
+
+def migrate_udo_status_history(ctx: ETLContext) -> None:
+    """
+    Migrates UDO status history data.
+    """
+    ### EXTRACT ###
+    # Extract main status data
+    df_stato_udo = pl.read_database(
+        "SELECT * FROM AUAC_USR.STATO_UDO",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_stato_udo.height} from table "AUAC_USR.STATO_UDO"'
+    )
+
+    # Extract UDO data for supply information
+    df_udo = pl.read_database(
+        "SELECT CLIENTID, EROGAZIONE_DIRETTA, EROGAZIONE_INDIRETTA FROM AUAC_USR.UDO_MODEL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted supply data from "AUAC_USR.UDO_MODEL"'
+    )
+
+    # Extract bed history data
+    df_beds = pl.read_database(
+        "SELECT ID_STATO_UDO_FK, PL, PLEX, PLOB FROM AUAC_USR.STORICO_POSTI_LETTO",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted bed history data from "AUAC_USR.STORICO_POSTI_LETTO"'
+    )
+
+    ### TRANSFORM ###
+    # Clean and transform the main status data
+    df_stato_udo = df_stato_udo.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
+        pl.col("STATO").str.strip_chars().str.to_uppercase().alias("status"),
+        pl.col("SCADENZA").alias("valid_to"),
+        pl.col("DATA_INIZIO").alias("valid_from"),
+        pl.col("CREATION")
+        .fill_null(pl.col("LAST_MOD"))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("created_at"),
+        pl.col("LAST_MOD")
+        .fill_null(pl.col("CREATION"))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
+    )
+
+    # Replace specific status values
+    df_stato_udo = df_stato_udo.with_columns(
+        pl.col("status").replace("AUTORIZZATA/ACCREDITATA", "AUTORIZZATA")
+    )
+
+    # Map supply information from UDO data
+    df_udo = df_udo.select(
+        pl.col("CLIENTID").str.strip_chars().alias("udo_id"),
+        pl.when(pl.col("EROGAZIONE_DIRETTA").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_direct_supply"),
+        pl.when(pl.col("EROGAZIONE_INDIRETTA").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_indirect_supply"),
+    )
+
+    # Join with UDO data to get supply information
+    df_result = df_stato_udo.join(
+        df_udo,
+        left_on="udo_id",
+        right_on="udo_id",
+        how="left",
+    )
+
+    # Map bed information from bed history data
+    df_beds = df_beds.select(
+        pl.col("ID_STATO_UDO_FK").str.strip_chars().alias("id"),
+        pl.col("PL").cast(pl.UInt16, strict=False).fill_null(0).alias("beds"),
+        pl.col("PLEX").cast(pl.UInt16, strict=False).fill_null(0).alias("extra_beds"),
+        pl.col("PLOB").cast(pl.UInt16, strict=False).fill_null(0).alias("mortuary_beds"),
+    )
+
+    # Join with bed history data
+    df_result = df_result.join(
+        df_beds,
+        left_on="id",
+        right_on="id",
+        how="left",
+    )
+
+    # Fill null values for bed columns
+    df_result = df_result.with_columns(
+        pl.col("beds").fill_null(0),
+        pl.col("extra_beds").fill_null(0),
+        pl.col("mortuary_beds").fill_null(0),
+    )
+
+    # Add extra column as empty JSON
+    df_result = df_result.with_columns(
+        pl.lit("{}").alias("extra")
+    )
+
+    # Verify UDO IDs exist in the udos table
+    try:
+        df_udos = pl.read_database(
+            "SELECT id FROM udos",
+            connection=ctx.pg_engine,
+            infer_schema_length=None,
+        )
+        logging.info(f'⛏️ Extracted UDO IDs from target database for validation')
+
+        # Convert to a list for filtering
+        valid_udo_ids = df_udos.select("id").to_series().to_list()
+
+        # Filter to include only records with valid UDO IDs
+        df_result = df_result.filter(
+            pl.col("udo_id").is_in(valid_udo_ids)
+        )
+        logging.info(f'Filtered to {df_result.height} records with valid UDO IDs')
+    except Exception as e:
+        logging.warning(f"Could not validate UDO IDs: {e}")
+
+    # Let PostgreSQL generate new UUIDs for the records
+    logging.info("Removing 'id' column to let PostgreSQL generate new UUIDs")
+    if "id" in df_result.columns:
+        df_result = df_result.drop("id")
+
+    # No need to check for duplicates since we're generating new IDs
+
+    # Skip if no records to insert
+    if df_result.height == 0:
+        logging.info("No new records to insert into udo_status_history")
+        return
+
+    ### LOAD ###
+    df_result.write_database(
+        table_name="udo_status_history",
+        connection=ctx.pg_engine,
+        if_table_exists="append",
+    )
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udo_status_history"')
+
+
+def migrate_udos(ctx: ETLContext) -> None:
+    """
+    Migrates UDO data from UDO_MODEL to udos table.
+    """
+    ### EXTRACT ###
+    # Extract main UDO data
+    df_udo_model = pl.read_database(
+        "SELECT * FROM AUAC_USR.UDO_MODEL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted {df_udo_model.height} from table "AUAC_USR.UDO_MODEL"'
+    )
+
+    # Extract operational office data
+    df_sede_oper = pl.read_database(
+        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted data from "AUAC_USR.SEDE_OPER_MODEL"'
+    )
+
+    # Extract structure data
+    df_struttura = pl.read_database(
+        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted data from "AUAC_USR.STRUTTURA_MODEL"'
+    )
+
+    # Extract company data
+    df_titolare = pl.read_database(
+        "SELECT * FROM AUAC_USR.TITOLARE_MODEL",
+        connection=ctx.oracle_engine.connect(),
+        infer_schema_length=None,
+    )
+    logging.info(
+        f'⛏️ Extracted data from "AUAC_USR.TITOLARE_MODEL"'
+    )
+
+    # Extract UO_MODEL data for operational units
+    try:
+        df_uo_model = pl.read_database(
+            "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL",
+            connection=ctx.oracle_engine.connect(),
+            infer_schema_length=None,
+        )
+        logging.info(f'⛏️ Extracted UO_MODEL mapping data')
+    except Exception as e:
+        logging.warning(f"Could not extract UO_MODEL data: {e}")
+        df_uo_model = pl.DataFrame({"ID_UO": [], "CLIENTID": []})
+
+    ### TRANSFORM ###
+    # Clean string columns in the main UDO data
+    string_columns = [
+        "CLIENTID", "DESCR", "ID_UNIVOCO", "ID_TIPO_UDO_22_FK", "ID_SEDE_FK", 
+        "ID_EDIFICIO_STR_FK", "PIANO", "STATO", "BLOCCO", "PROGRESSIVO", 
+        "CODICE_FLUSSO_MINISTERIALE", "COD_FAR_FAD", "STAREP", "CDC", 
+        "PAROLE_CHIAVE", "ANNOTATIONS"
+    ]
+
+    for col in string_columns:
+        if col in df_udo_model.columns:
+            df_udo_model = df_udo_model.with_columns(
+                pl.col(col).str.replace_all("\x00", "").alias(col)
+            )
+
+    # Transform the main UDO data
+    df_result = df_udo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("DESCR").str.strip_chars().alias("name"),
+        pl.col("STATO").str.strip_chars().str.to_uppercase().fill_null("NUOVA").alias("status"),
+        pl.col("ID_UNIVOCO").str.strip_chars().alias("code"),
+        pl.col("ID_TIPO_UDO_22_FK").str.strip_chars().alias("udo_type_id"),
+        pl.col("ID_SEDE_FK").str.strip_chars().alias("operational_office_id"),
+        pl.col("ID_EDIFICIO_STR_FK").str.strip_chars().alias("building_id"),
+        pl.col("PIANO").str.strip_chars().alias("floor"),
+        pl.col("BLOCCO").str.strip_chars().alias("block"),
+        pl.col("PROGRESSIVO").str.strip_chars().fill_null("-").alias("progressive"),
+        pl.col("CODICE_FLUSSO_MINISTERIALE").str.strip_chars().alias("ministerial_code"),
+        pl.col("COD_FAR_FAD").str.strip_chars().alias("farfad_code"),
+        pl.when(pl.col("SIO").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_sio"),
+        pl.col("STAREP").str.strip_chars().alias("starep_code"),
+        pl.col("CDC").str.strip_chars().alias("cost_center"),
+        pl.col("PAROLE_CHIAVE").str.strip_chars().alias("keywords"),
+        pl.col("ANNOTATIONS").str.strip_chars().alias("notes"),
+        pl.when(pl.col("WEEK").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_open_only_on_business_days"),
+        pl.when(pl.col("AUAC") == 1)
+        .then(True)
+        .otherwise(False)
+        .alias("is_auac"),
+        pl.when(pl.col("FLAG_MODULO").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_module"),
+        pl.col("PROVENIENZA_UO").alias("PROVENIENZA_UO"),
+        pl.col("ID_UO").alias("ID_UO"),
+        pl.col("CREATION")
+        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("created_at"),
+        pl.col("LAST_MOD")
+        .fill_null(pl.col("CREATION"))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
+        pl.when(pl.col("DISABLED") == "S")
+        .then(
+            pl.col("LAST_MOD")
+            .fill_null(pl.col("CREATION"))
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+            .dt.replace_time_zone(None)
+        )
+        .otherwise(None)
+        .alias("disabled_at"),
+    )
+
+    # Join with operational office, structure, and company data
+    df_sede_struttura = df_sede_oper.select(
+        pl.col("CLIENTID").alias("operational_office_id"),
+        pl.col("ID_STRUTTURA_FK").alias("id_struttura_fk")
+    )
+
+    df_struttura_titolare = df_struttura.select(
+        pl.col("CLIENTID").alias("id_struttura_fk"),
+        pl.col("ID_TITOLARE_FK").alias("id_titolare_fk")
+    )
+
+    df_titolare_id = df_titolare.select(
+        pl.col("CLIENTID").alias("id_titolare_fk")
+    )
+
+    # Join to get company_id
+    df_joined = df_sede_struttura.join(
+        df_struttura_titolare,
+        on="id_struttura_fk",
+        how="left"
+    )
+
+    df_joined = df_joined.join(
+        df_titolare_id,
+        on="id_titolare_fk",
+        how="left"
+    )
+
+    df_company_map = df_joined.select(
+        pl.col("operational_office_id"),
+        pl.col("id_titolare_fk").alias("company_id")
+    )
+
+    # Join with company map
+    df_result = df_result.join(
+        df_company_map,
+        on="operational_office_id",
+        how="left"
+    )
+
+    # Process operational unit data
+    # For UO_MODEL source
+    df_uo_filtered = df_result.filter(
+        pl.col("PROVENIENZA_UO") == "UO_MODEL"
+    )
+
+    if df_uo_model.height > 0 and df_uo_filtered.height > 0:
+        df_uo_filtered = df_uo_filtered.join(
+            df_uo_model,
+            left_on="ID_UO",
+            right_on="ID_UO",
+            how="left"
+        ).with_columns(
+            pl.col("CLIENTID").alias("operational_unit_id")
+        )
+
+        # Update the main result with operational unit IDs
+        df_result = df_result.join(
+            df_uo_filtered.select("id", "operational_unit_id"),
+            on="id",
+            how="left"
+        )
+
+    # Since we don't have access to the V_NODI table through oracle_poa_engine,
+    # we'll skip that part and just set organigram_node_id to null
+
+    # Add organigram_node_id column with null values
+    df_result = df_result.with_columns(
+        pl.lit(None).alias("organigram_node_id")
+    )
+
+    # Drop unnecessary columns
+    df_result = df_result.drop(["PROVENIENZA_UO", "ID_UO"])
+
+    # Add extra column as empty JSON
+    df_result = df_result.with_columns(
+        pl.lit("{}").alias("extra")
+    )
+
+    # Filter out invalid UDO types
+    invalid_udo_types = [
+        '3E2436FA-B18B-3B51-F0EC-A2DB6B8E8AD0',
+        '9802C27D-1001-BC4C-7C84-59E8CD1832CE',
+        '292B63D5-E3C3-8B12-B565-7919E3D86ABE',
+        '6DEBDC16-90D5-D3F3-82FA-F548381CBB51',
+        '53F0D51B-FC0C-305D-2090-1D2A48573497'
+    ]
+
+    df_result = df_result.filter(
+        ~pl.col("udo_type_id").is_in(invalid_udo_types)
+    )
+
+    ### LOAD ###
+    df_result.write_database(
+        table_name="udos",
+        connection=ctx.pg_engine,
+        if_table_exists="append",
+    )
+    logging.info(f'⬆️ Loaded {df_result.height} rows to table "udos"')

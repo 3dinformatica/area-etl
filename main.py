@@ -18,9 +18,13 @@ from udo import (
     migrate_production_factor_types,
     migrate_production_factors,
     migrate_udo_types,
+    migrate_udos,
     migrate_udo_production_factors,
     migrate_udo_type_production_factor_types,
-    migrate_udo_branches,
+    migrate_udo_specialties_from_branches,
+    migrate_udo_specialties_from_disciplines,
+    migrate_udo_resolutions,
+    migrate_udo_status_history,
 )
 
 
@@ -43,9 +47,13 @@ def main() -> None:
     migrate_production_factor_types(ctx)
     migrate_production_factors(ctx)
     migrate_udo_types(ctx)
+    migrate_udos(ctx)
     migrate_udo_production_factors(ctx)
     migrate_udo_type_production_factor_types(ctx)
-    migrate_udo_branches(ctx)
+    migrate_udo_specialties_from_branches(ctx)
+    migrate_udo_specialties_from_disciplines(ctx)
+    migrate_udo_resolutions(ctx)
+    migrate_udo_status_history(ctx)
     logging.info("===>>> ETL completato con successo <<<===")
 
 

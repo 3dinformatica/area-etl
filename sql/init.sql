@@ -304,6 +304,54 @@ ALTER TABLE provinces
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
+-------------------------------------------------------RESOLUTION-------------------------------------------------------
+-- Tables
+CREATE TABLE resolution_types
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_resolution_types PRIMARY KEY (id),
+    CONSTRAINT uc_resolution_types_name UNIQUE (name)
+);
+
+CREATE TABLE resolutions
+(
+    id                   UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name                 TEXT,
+    -- UDO, GENERALE, PROGRAMMAZIONE, REQUISITI
+    category             VARCHAR                  NOT NULL,
+    -- AUTORIZZAZIONE, ACCREDITAMENTO, REVOCA_AUT, REVOCA_ACC
+    procedure_type       VARCHAR,
+    number               TEXT,
+    year                 INTEGER,
+    valid_from           TIMESTAMP WITH TIME ZONE NOT NULL,
+    valid_to             TIMESTAMP WITH TIME ZONE,
+    bur_number           INTEGER,
+    bur_date             TIMESTAMP WITH TIME ZONE,
+    dgr_link             TEXT,
+    direction            TEXT,
+    file_id              TEXT,
+    resolution_type_id   UUID                     NOT NULL,
+    parent_resolution_id UUID,
+    company_id           UUID,
+    extra                JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at          TIMESTAMP WITH TIME ZONE,
+    created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_resolutions PRIMARY KEY (id),
+    CONSTRAINT uc_resolutions_name UNIQUE (name)
+);
+
+-- Foreign key constraints
+ALTER TABLE resolutions
+    ADD CONSTRAINT fk_resolutions_resolution_type_id FOREIGN KEY (resolution_type_id)
+        REFERENCES resolution_types (id)
+        ON DELETE CASCADE;
+
 ----------------------------------------------------------UDO-----------------------------------------------------------
 -- Tables
 CREATE TABLE production_factor_types
@@ -368,6 +416,14 @@ CREATE TABLE udo_production_factors
     udo_id               UUID NOT NULL,
     production_factor_id UUID NOT NULL,
     CONSTRAINT pk_udo_production_factors PRIMARY KEY (udo_id, production_factor_id)
+);
+
+-- TODO: Questa non c'è in udo-service
+CREATE TABLE udo_resolutions
+(
+    udo_id         UUID NOT NULL,
+    resolution_id  UUID NOT NULL,
+    CONSTRAINT pk_udo_resolutions PRIMARY KEY (udo_id, resolution_id)
 );
 
 CREATE TABLE udo_status_history
@@ -492,6 +548,18 @@ ALTER TABLE udo_production_factors
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
+ALTER TABLE udo_resolutions
+    ADD CONSTRAINT fk_udo_resolutions_udo_id FOREIGN KEY (udo_id)
+        REFERENCES udos (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
+ALTER TABLE udo_resolutions
+    ADD CONSTRAINT fk_udo_resolutions_resolution_id FOREIGN KEY (resolution_id)
+        REFERENCES resolutions (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
 ALTER TABLE udo_status_history
     ADD CONSTRAINT fk_udo_status_history_udo_id FOREIGN KEY (udo_id)
         REFERENCES udos (id)
@@ -567,55 +635,6 @@ ALTER TABLE specialties
         REFERENCES specialties (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
-
--------------------------------------------------------RESOLUTION-------------------------------------------------------
--- Tables
-CREATE TABLE resolution_types
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_resolution_types PRIMARY KEY (id),
-    CONSTRAINT uc_resolution_types_name UNIQUE (name)
-);
-
-CREATE TABLE resolutions
-(
-    id                   UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name                 TEXT,
-    -- UDO, GENERALE, PROGRAMMAZIONE, REQUISITI
-    category             VARCHAR                  NOT NULL,
-    -- AUTORIZZAZIONE, ACCREDITAMENTO, REVOCA_AUT, REVOCA_ACC
-    procedure_type       VARCHAR,
-    number               TEXT,
-    year                 INTEGER,
-    valid_from           TIMESTAMP WITH TIME ZONE NOT NULL,
-    valid_to             TIMESTAMP WITH TIME ZONE,
-    bur_number           INTEGER,
-    bur_date             TIMESTAMP WITH TIME ZONE,
-    dgr_link             TEXT,
-    direction            TEXT,
-    file_id              TEXT,
-    resolution_type_id   UUID                     NOT NULL,
-    parent_resolution_id UUID,
-    company_id           UUID,
-    extra                JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at          TIMESTAMP WITH TIME ZONE,
-    created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_resolutions PRIMARY KEY (id),
-    CONSTRAINT uc_resolutions_name UNIQUE (name)
-);
-
--- Foreign key constraints
-ALTER TABLE resolutions
-    ADD CONSTRAINT fk_resolutions_resolution_type_id FOREIGN KEY (resolution_type_id)
-        REFERENCES resolution_types (id)
-        ON DELETE CASCADE;
-
 
 -------------------------------------------------------ORGCHART---------------------------------------------------------
 -- Tables
