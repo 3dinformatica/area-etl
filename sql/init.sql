@@ -337,37 +337,11 @@ CREATE TABLE production_factors
     CONSTRAINT pk_production_factors PRIMARY KEY (id)
 );
 
-CREATE TABLE statuses
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_statuses PRIMARY KEY (id),
-    CONSTRAINT uc_statuses_name UNIQUE (name)
-);
-
-CREATE TABLE udo_branches
-(
-    id            UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    udo_id        UUID                     NOT NULL,
-    branch_id     UUID                     NOT NULL,
-    is_authorized BOOLEAN                  NOT NULL DEFAULT FALSE,
-    is_accredited BOOLEAN                  NOT NULL DEFAULT FALSE,
-    extra         JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at   TIMESTAMP WITH TIME ZONE,
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_udo_branches PRIMARY KEY (udo_id, branch_id)
-);
-
-CREATE TABLE udo_disciplines
+CREATE TABLE udo_specialties
 (
     id                           UUID                     NOT NULL DEFAULT gen_random_uuid(),
     udo_id                       UUID                     NOT NULL,
-    discipline_id                UUID                     NOT NULL,
+    specialty_id                 UUID                     NOT NULL,
     clinical_operational_unit_id UUID,
     clinical_organigram_node_id  UUID,
     beds                         INTEGER,
@@ -375,11 +349,13 @@ CREATE TABLE udo_disciplines
     mortuary_beds                INTEGER,
     accredited_beds              INTEGER,
     hsp12                        TEXT,
+    is_authorized                BOOLEAN                  NOT NULL DEFAULT FALSE,
+    is_accredited                BOOLEAN                  NOT NULL DEFAULT FALSE,
     extra                        JSONB                    NOT NULL DEFAULT '{}'::jsonb,
     disabled_at                  TIMESTAMP WITH TIME ZONE,
     created_at                   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT uc_udo_disciplines UNIQUE (udo_id, discipline_id, clinical_operational_unit_id,
+    CONSTRAINT uc_udo_specialties UNIQUE (udo_id, specialty_id, clinical_operational_unit_id,
                                           clinical_organigram_node_id),
     CONSTRAINT check_one_clinical_id_or_none_set CHECK (
         (clinical_operational_unit_id IS NOT NULL AND clinical_organigram_node_id IS NULL) OR
@@ -398,7 +374,7 @@ CREATE TABLE udo_statuses
 (
     id                 UUID                     NOT NULL DEFAULT gen_random_uuid(),
     udo_id             UUID                     NOT NULL,
-    status_id          UUID                     NOT NULL,
+    status             TEXT                     NOT NULL,
     beds               INTEGER,
     extra_beds         INTEGER,
     mortuary_beds      INTEGER,
@@ -495,14 +471,8 @@ ALTER TABLE production_factors
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE udo_branches
-    ADD CONSTRAINT fk_udo_branches_udo_id FOREIGN KEY (udo_id)
-        REFERENCES udos (id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION;
-
-ALTER TABLE udo_disciplines
-    ADD CONSTRAINT fk_udo_disciplines_udo_id FOREIGN KEY (udo_id)
+ALTER TABLE udo_specialties
+    ADD CONSTRAINT fk_udo_specialties_udo_id FOREIGN KEY (udo_id)
         REFERENCES udos (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
@@ -522,12 +492,6 @@ ALTER TABLE udo_production_factors
 ALTER TABLE udo_statuses
     ADD CONSTRAINT fk_udo_statuses_udo_id FOREIGN KEY (udo_id)
         REFERENCES udos (id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION;
-
-ALTER TABLE udo_statuses
-    ADD CONSTRAINT fk_udo_statuses_status_id FOREIGN KEY (status_id)
-        REFERENCES statuses (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
