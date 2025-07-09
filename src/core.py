@@ -1,11 +1,12 @@
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import polars as pl
 from cx_Oracle import init_oracle_client
-from sqlalchemy import create_engine, text, Engine
+from sqlalchemy import create_engine, text, Engine, inspect
 
 from src.settings import settings
 
@@ -132,3 +133,73 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
         for table in tables:
             conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
         conn.commit()
+
+
+def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
+    """
+    Export all PostgreSQL tables to CSV files in the specified directory.
+
+    Args:
+        ctx: The ETL context containing database connections
+        export_dir: The directory where CSV files will be saved (default: "export")
+    """
+    import inspect
+    import pandas as pd
+    from sqlalchemy import text
+    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split('.')[-1]
+
+    # Create export directory if it doesn't exist
+    export_path = Path(export_dir)
+    export_path.mkdir(parents=True, exist_ok=True)
+
+    # Get list of tables
+    tables = [
+        "regions",
+        "provinces",
+        "municipalities",
+        "toponyms",
+        "company_types",
+        "companies",
+        "physical_structures",
+        "operational_offices",
+        "buildings",
+        "grouping_specialties",
+        "specialties",
+        "users",
+        "permissions",
+        "user_companies",
+        "production_factor_types",
+        "production_factors",
+        "udo_types",
+        "udos",
+        "udo_production_factors",
+        "udo_type_production_factor_types",
+        "udo_specialties",
+        "udo_resolutions",
+        "udo_status_history",
+        "resolutions",
+        "resolution_types",
+    ]
+
+    logging.info(f"[{caller_module}] Exporting all tables to CSV in directory: {export_dir}")
+
+    # Export each table to CSV
+    for table in tables:
+        try:
+            # Use SQLAlchemy directly to query the data
+            with ctx.pg_engine.connect() as connection:
+                query = text(f"SELECT * FROM {table}")
+                result = connection.execute(query)
+
+                # Convert to pandas DataFrame
+                df_pandas = pd.DataFrame(result.fetchall(), columns=result.keys())
+
+                # Save to CSV
+                csv_path = export_path / f"{table}.csv"
+                df_pandas.to_csv(csv_path, index=False)
+
+                logging.info(f"[{caller_module}] Exported {len(df_pandas)} rows from table {table} to {csv_path}")
+        except Exception as e:
+            logging.error(f"[{caller_module}] Error exporting table {table}: {str(e)}")
+
+    logging.info(f"[{caller_module}] Export completed. CSV files saved in {export_dir} directory")

@@ -853,15 +853,15 @@ def migrate_udos(ctx: ETLContext) -> None:
     # Transform the main UDO data
     df_result = df_udo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("DESCR").str.strip_chars().alias("name"),
+        pl.col("DESCR").str.strip_chars().str.replace_all("\n", "").str.replace_all("\r", "").alias("name"),
         pl.col("STATO").str.strip_chars().str.to_uppercase().fill_null("NUOVA").alias("status"),
-        pl.col("ID_UNIVOCO").str.strip_chars().alias("code"),
+        pl.col("ID_UNIVOCO").str.strip_chars().str.replace_all("\n", "").str.replace_all("\r", "").alias("code"),
         pl.col("ID_TIPO_UDO_22_FK").str.strip_chars().alias("udo_type_id"),
         pl.col("ID_SEDE_FK").str.strip_chars().alias("operational_office_id"),
         pl.col("ID_EDIFICIO_STR_FK").str.strip_chars().alias("building_id"),
         pl.col("PIANO").str.strip_chars().alias("floor"),
-        pl.col("BLOCCO").str.strip_chars().alias("block"),
-        pl.col("PROGRESSIVO").str.strip_chars().fill_null("-").alias("progressive"),
+        pl.col("BLOCCO").str.strip_chars().replace("-", None).alias("block"),
+        pl.col("PROGRESSIVO").str.strip_chars().replace("-", None).alias("progressive"),
         pl.col("CODICE_FLUSSO_MINISTERIALE").str.strip_chars().alias("ministerial_code"),
         pl.col("COD_FAR_FAD").str.strip_chars().alias("farfad_code"),
         pl.when(pl.col("SIO").str.strip_chars().str.to_lowercase() == "y")
@@ -871,7 +871,7 @@ def migrate_udos(ctx: ETLContext) -> None:
         pl.col("STAREP").str.strip_chars().alias("starep_code"),
         pl.col("CDC").str.strip_chars().alias("cost_center"),
         pl.col("PAROLE_CHIAVE").str.strip_chars().alias("keywords"),
-        pl.col("ANNOTATIONS").str.strip_chars().alias("notes"),
+        pl.col("ANNOTATIONS").str.strip_chars().str.replace_all("\n", "").str.replace_all("\r", "").alias("notes"),
         pl.when(pl.col("WEEK").str.strip_chars().str.to_lowercase() == "y")
         .then(True)
         .otherwise(False)

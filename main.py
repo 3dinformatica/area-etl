@@ -1,3 +1,4 @@
+import argparse
 import logging
 from datetime import datetime
 
@@ -8,7 +9,7 @@ from company import (
     migrate_operational_offices,
     migrate_buildings,
 )
-from core import setup_logging, setup_connections, truncate_postgresql_tables
+from core import setup_logging, setup_connections, truncate_postgresql_tables, export_tables_to_csv
 from location import migrate_regions, migrate_provinces, migrate_municipalities, migrate_toponyms
 from resolution import migrate_resolution_types, migrate_resolutions
 from specialty import (
@@ -29,13 +30,43 @@ from udo import (
 )
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="A.Re.A. ETL process")
+    parser.add_argument(
+        "--export-csv", 
+        action="store_true", 
+        help="Export all PostgreSQL tables to CSV files"
+    )
+    parser.add_argument(
+        "--export-dir", 
+        type=str, 
+        default="export", 
+        help="Directory where CSV files will be saved (default: 'export')"
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     setup_logging()
     start_time = datetime.now()
-    logging.info("Starting A.Re.A. ETL process...")
 
     try:
         ctx = setup_connections()
+
+        if args.export_csv:
+            logging.info("Starting CSV export process...")
+            export_tables_to_csv(ctx, args.export_dir)
+            end_time = datetime.now()
+            elapsed_time = end_time - start_time
+            hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            logging.info(f"Total export time: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
+            logging.info("CSV export completed successfully")
+            return
+
+        # Regular ETL process
+        logging.info("Starting A.Re.A. ETL process...")
         truncate_postgresql_tables(ctx)
         migrate_regions(ctx)
         migrate_provinces(ctx)
@@ -72,7 +103,7 @@ def main() -> None:
         elapsed_time = end_time - start_time
         hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
-        logging.error(f"Error during ETL execution after {int(hours)}h {int(minutes)}m {seconds:.2f}s: {str(e)}", exc_info=True)
+        logging.error(f"Error during execution after {int(hours)}h {int(minutes)}m {seconds:.2f}s: {str(e)}", exc_info=True)
         raise
 
 
