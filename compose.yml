@@ -1,6 +1,6 @@
 services:
-  area-postgres:
-    container_name: "area-postgres"
+  area-etl-postgres:
+    container_name: "area-etl-postgres"
     image: "postgres:17"
     ports:
       - "5433:5432"
