@@ -96,8 +96,11 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
 
     caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
 
-    df.write_database(table_name=table_name, connection=ctx.pg_engine, if_table_exists="append")
-    logging.info(f"[{caller_module}] Loaded {df.height} rows into PostgreSQL table {table_name}")
+    # Apply table prefix if set
+    prefixed_table_name = f"{settings.PG_TABLE_PREFIX}{table_name}"
+
+    df.write_database(table_name=prefixed_table_name, connection=ctx.pg_engine, if_table_exists="append")
+    logging.info(f"[{caller_module}] Loaded {df.height} rows into PostgreSQL table {prefixed_table_name}")
 
 
 def truncate_postgresql_tables(ctx: ETLContext) -> None:
@@ -133,7 +136,8 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
             "resolution_types",
         ]
         for table in tables:
-            conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+            prefixed_table = f"{settings.PG_TABLE_PREFIX}{table}"
+            conn.execute(text(f"TRUNCATE TABLE {prefixed_table} RESTART IDENTITY CASCADE"))
         conn.commit()
 
 
@@ -190,18 +194,19 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
         try:
             # Use SQLAlchemy directly to query the data
             with ctx.pg_engine.connect() as connection:
-                query = text(f"SELECT * FROM {table}")
+                prefixed_table = f"{settings.PG_TABLE_PREFIX}{table}"
+                query = text(f"SELECT * FROM {prefixed_table}")
                 result = connection.execute(query)
 
                 # Convert to pandas DataFrame
                 df_pandas = pd.DataFrame(result.fetchall(), columns=result.keys())
 
                 # Save to CSV
-                csv_path = export_path / f"{table}.csv"
+                csv_path = export_path / f"{table}.csv"  # Keep original table name for CSV file
                 df_pandas.to_csv(csv_path, index=False)
 
                 logging.info(
-                    f"[{caller_module}] Exported {len(df_pandas)} rows from table {table} to {csv_path}"
+                    f"[{caller_module}] Exported {len(df_pandas)} rows from table {prefixed_table} to {csv_path}"
                 )
         except Exception as e:
             logging.error(f"[{caller_module}] Error exporting table {table}: {e!s}")
