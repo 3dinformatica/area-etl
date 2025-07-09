@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone
 
 import polars as pl
@@ -12,16 +11,14 @@ def map_macroarea(value: str | None) -> str | None:
 
     value = value.lower().strip()
 
-    if value == "acuti":
-        return "ACUTI"
-    elif value == "riabilitazione":
-        return "RIABILITAZIONE"
-    elif value == "intermedie":
-        return "INTERMEDIE"
-    elif value == "territoriale":
-        return "TERRITORIALE"
-    else:
-        return value
+    macroarea_mapping = {
+        "acuti": "ACUTI",
+        "riabilitazione": "RIABILITAZIONE",
+        "intermedie": "INTERMEDIE",
+        "territoriale": "TERRITORIALE",
+    }
+
+    return macroarea_mapping.get(value, value)
 
 
 def map_specialty_type(value: str) -> str | None:
@@ -46,14 +43,10 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_ragg_discpl = extract_data(
-        ctx, 
-        "SELECT * FROM AUAC_USR.RAGG_DISCPL"
-    )
+    df_ragg_discpl = extract_data(ctx, "SELECT * FROM AUAC_USR.RAGG_DISCPL")
 
     df_macroarea_programmazione = extract_data(
-        ctx, 
-        "SELECT * FROM AUAC_USR.MACROAREA_PROGRAMMAZIONE"
+        ctx, "SELECT * FROM AUAC_USR.MACROAREA_PROGRAMMAZIONE"
     ).select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("ID_MACROAREA_FK"),
         pl.col("NOME").str.strip_chars().alias("macroarea"),
@@ -69,9 +62,7 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
     df_result = df_result.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
-        pl.col("macroarea")
-        .str.strip_chars()
-        .map_elements(map_macroarea, return_dtype=pl.String),
+        pl.col("macroarea").str.strip_chars().map_elements(map_macroarea, return_dtype=pl.String),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -105,19 +96,12 @@ def migrate_specialties(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_disciplina_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL"
-    )
+    df_disciplina_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL")
 
-    df_branca_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.BRANCA_TEMPL"
-    )
+    df_branca_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.BRANCA_TEMPL")
 
     df_artic_branca_altro_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"
+        ctx, "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"
     )
 
     ### TRANSFORM ###
@@ -242,8 +226,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
 
     # Combine all dataframes
     df_result = pl.concat(
-        [df_disciplines, df_branches, df_additional_branches],
-        how="vertical_relaxed"
+        [df_disciplines, df_branches, df_additional_branches], how="vertical_relaxed"
     )
 
     # Remove duplicates based on name and code to avoid unique constraint violation

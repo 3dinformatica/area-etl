@@ -121,9 +121,7 @@ def migrate_permissions(ctx: ETLContext) -> None:
     df = pl.read_csv("seed/permissions.csv")
 
     ### LOAD ###
-    df.write_database(
-        table_name="permissions", connection=ctx.pg_engine, if_table_exists="append"
-    )
+    df.write_database(table_name="permissions", connection=ctx.pg_engine, if_table_exists="append")
     logging.info("Loaded seed data into permissions table")
 
 
@@ -198,9 +196,7 @@ def migrate_user_companies(ctx: ETLContext) -> None:
     df_combined = df_combined.sort("user_id")
     df_combined = df_combined.with_columns(
         [
-            pl.col("disabled_at").fill_null(
-                pl.col("disabled_at").forward_fill().backward_fill()
-            ),
+            pl.col("disabled_at").fill_null(pl.col("disabled_at").forward_fill().backward_fill()),
             pl.col("created_at").fill_null(pl.col("updated_at")),
             pl.col("updated_at").fill_null(pl.col("created_at")),
         ]

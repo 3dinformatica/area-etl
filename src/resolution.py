@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone
 
 import polars as pl
@@ -14,15 +13,9 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_tipo_delibera = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_DELIBERA"
-    )
+    df_tipo_delibera = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_DELIBERA")
 
-    df_tipo_atto = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_ATTO"
-    )
+    df_tipo_atto = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_ATTO")
 
     ### TRANSFORM ###
     df_tipo_delibera = df_tipo_delibera.select(
@@ -86,36 +79,12 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_delibera_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.DELIBERA_TEMPL"
-    )
-
-    df_atto_model = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.ATTO_MODEL"
-    )
-
-    df_tipo_proc_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL"
-    )
-
-    df_tipo_delibera = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_DELIBERA"
-    )
-
-    df_tipo_atto = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_ATTO"
-    )
-
-    df_resolution_types = extract_data(
-        ctx,
-        "SELECT * FROM resolution_types",
-        source="pg"
-    )
+    df_delibera_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.DELIBERA_TEMPL")
+    df_atto_model = extract_data(ctx, "SELECT * FROM AUAC_USR.ATTO_MODEL")
+    df_tipo_proc_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL")
+    df_tipo_delibera = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_DELIBERA")
+    df_tipo_atto = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_ATTO")
+    df_resolution_types = extract_data(ctx, "SELECT * FROM resolution_types", source="pg")
 
     ### TRANSFORM ###
     # Column "id" is read as an object an not as a string
@@ -137,9 +106,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone("Europe/Rome")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias(
-            "file_id"
-        ),  # TODO: Missing actual file save to storage
+        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # TODO: Missing actual file save to storage
         pl.col("N_BUR").cast(pl.String).str.strip_chars().alias("bur_number"),
         pl.col("DATA_BUR")
         .dt.replace_time_zone("Europe/Rome")
@@ -185,9 +152,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias(
-            "file_id"
-        ),  # TODO: Missing actual file save to storage
+        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # TODO: Missing actual file save to storage
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -219,21 +184,13 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     )
     df_tipo_delibera = df_tipo_delibera.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("NOME")
-        .str.strip_chars()
-        .str.to_uppercase()
-        .alias("resolution_type_name"),
+        pl.col("NOME").str.strip_chars().str.to_uppercase().alias("resolution_type_name"),
     )
     df_tipo_atto = df_tipo_atto.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("DESCR")
-        .str.strip_chars()
-        .str.to_uppercase()
-        .alias("resolution_type_name"),
+        pl.col("DESCR").str.strip_chars().str.to_uppercase().alias("resolution_type_name"),
     )
-    df_tipo_delibera_concat_tipo_atto = pl.concat(
-        [df_tipo_delibera, df_tipo_atto], how="vertical"
-    )
+    df_tipo_delibera_concat_tipo_atto = pl.concat([df_tipo_delibera, df_tipo_atto], how="vertical")
     df_resolution_types = df_resolution_types.select(
         pl.col("id").alias("resolution_type_id"),
         pl.col("name"),

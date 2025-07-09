@@ -3,14 +3,24 @@ import logging
 from datetime import datetime
 
 from company import (
-    migrate_company_types,
-    migrate_companies,
-    migrate_physical_structures,
-    migrate_operational_offices,
     migrate_buildings,
+    migrate_companies,
+    migrate_company_types,
+    migrate_operational_offices,
+    migrate_physical_structures,
 )
-from core import setup_logging, setup_connections, truncate_postgresql_tables, export_tables_to_csv
-from location import migrate_regions, migrate_provinces, migrate_municipalities, migrate_toponyms
+from core import (
+    export_tables_to_csv,
+    setup_connections,
+    setup_logging,
+    truncate_postgresql_tables,
+)
+from location import (
+    migrate_municipalities,
+    migrate_provinces,
+    migrate_regions,
+    migrate_toponyms,
+)
 from resolution import migrate_resolution_types, migrate_resolutions
 from specialty import (
     migrate_grouping_specialties,
@@ -19,29 +29,29 @@ from specialty import (
 from udo import (
     migrate_production_factor_types,
     migrate_production_factors,
-    migrate_udo_types,
-    migrate_udos,
     migrate_udo_production_factors,
-    migrate_udo_type_production_factor_types,
+    migrate_udo_resolutions,
     migrate_udo_specialties_from_branches,
     migrate_udo_specialties_from_disciplines,
-    migrate_udo_resolutions,
     migrate_udo_status_history,
+    migrate_udo_type_production_factor_types,
+    migrate_udo_types,
+    migrate_udos,
 )
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="A.Re.A. ETL process")
     parser.add_argument(
-        "--export-csv", 
-        action="store_true", 
-        help="Export all PostgreSQL tables to CSV files"
+        "--export-csv",
+        action="store_true",
+        help="Export all PostgreSQL tables to CSV files",
     )
     parser.add_argument(
-        "--export-dir", 
-        type=str, 
-        default="export", 
-        help="Directory where CSV files will be saved (default: 'export')"
+        "--export-dir",
+        type=str,
+        default="export",
+        help="Directory where CSV files will be saved (default: 'export')",
     )
     return parser.parse_args()
 
@@ -103,7 +113,10 @@ def main() -> None:
         elapsed_time = end_time - start_time
         hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
-        logging.error(f"Error during execution after {int(hours)}h {int(minutes)}m {seconds:.2f}s: {str(e)}", exc_info=True)
+        logging.error(
+            f"Error during execution after {int(hours)}h {int(minutes)}m {seconds:.2f}s: {e!s}",
+            exc_info=True,
+        )
         raise
 
 

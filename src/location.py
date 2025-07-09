@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone
 
 import polars as pl
@@ -48,10 +47,7 @@ def migrate_toponyms(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_toponimo_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL"
-    )
+    df_toponimo_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL")
 
     ### TRANSFORM ###
     df_result = df_toponimo_templ.select(

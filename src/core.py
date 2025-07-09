@@ -1,12 +1,13 @@
+import inspect
 import logging
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 import polars as pl
 from cx_Oracle import init_oracle_client
-from sqlalchemy import create_engine, text, Engine, inspect
+from sqlalchemy import Engine, create_engine, text
 
 from src.settings import settings
 
@@ -52,17 +53,19 @@ def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.Data
     Returns:
         A polars DataFrame containing the extracted data
     """
-    import inspect
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split('.')[-1]
+
+    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
 
     engine = ctx.oracle_engine if source == "oracle" else ctx.pg_engine
     df = pl.read_database(query, connection=engine.connect(), infer_schema_length=None)
     table_name = query.split("FROM")[1].strip().split()[0] if "FROM" in query.upper() else "unknown"
-    logging.info(f'[{caller_module}] Extracted {df.height} rows from {source.upper()} table {table_name}')
+    logging.info(
+        f"[{caller_module}] Extracted {df.height} rows from {source.upper()} table {table_name}"
+    )
     return df
 
 
-def extract_data_from_csv(file_path: str, schema_overrides: dict = None) -> pl.DataFrame:
+def extract_data_from_csv(file_path: str, schema_overrides: dict | None = None) -> pl.DataFrame:
     """
     Generic function to extract data from a CSV file and log the extraction.
 
@@ -73,11 +76,11 @@ def extract_data_from_csv(file_path: str, schema_overrides: dict = None) -> pl.D
     Returns:
         A polars DataFrame containing the extracted data
     """
-    import inspect
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split('.')[-1]
+
+    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
 
     df = pl.read_csv(file_path, schema_overrides=schema_overrides)
-    logging.info(f'[{caller_module}] Extracted {df.height} rows from CSV file {file_path}')
+    logging.info(f"[{caller_module}] Extracted {df.height} rows from CSV file {file_path}")
     return df
 
 
@@ -90,16 +93,15 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
         df: The polars DataFrame to load
         table_name: The name of the destination table
     """
-    import inspect
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split('.')[-1]
+
+    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
 
     df.write_database(table_name=table_name, connection=ctx.pg_engine, if_table_exists="append")
-    logging.info(f'[{caller_module}] Loaded {df.height} rows into PostgreSQL table {table_name}')
+    logging.info(f"[{caller_module}] Loaded {df.height} rows into PostgreSQL table {table_name}")
 
 
 def truncate_postgresql_tables(ctx: ETLContext) -> None:
-    import inspect
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split('.')[-1]
+    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
 
     with ctx.pg_engine.connect() as conn:
         logging.info(f"[{caller_module}] Truncating all destination tables in PostgreSQL...")
@@ -143,10 +145,8 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
         ctx: The ETL context containing database connections
         export_dir: The directory where CSV files will be saved (default: "export")
     """
-    import inspect
-    import pandas as pd
-    from sqlalchemy import text
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split('.')[-1]
+
+    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
 
     # Create export directory if it doesn't exist
     export_path = Path(export_dir)
@@ -198,8 +198,10 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
                 csv_path = export_path / f"{table}.csv"
                 df_pandas.to_csv(csv_path, index=False)
 
-                logging.info(f"[{caller_module}] Exported {len(df_pandas)} rows from table {table} to {csv_path}")
+                logging.info(
+                    f"[{caller_module}] Exported {len(df_pandas)} rows from table {table} to {csv_path}"
+                )
         except Exception as e:
-            logging.error(f"[{caller_module}] Error exporting table {table}: {str(e)}")
+            logging.error(f"[{caller_module}] Error exporting table {table}: {e!s}")
 
     logging.info(f"[{caller_module}] Export completed. CSV files saved in {export_dir} directory")

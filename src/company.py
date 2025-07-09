@@ -1,11 +1,9 @@
 import json
-import logging
 from datetime import datetime, timezone
 
 import polars as pl
 
 from core import ETLContext, extract_data, load_data
-
 
 MUNICIPALITY_MAPPING = {
     "masera' di padova": "maserà di padova",
@@ -36,29 +34,26 @@ MUNICIPALITY_MAPPING = {
 
 
 def map_company_form(value: str) -> str | None:
-    match value.lower().strip():
-        case "s.c." | "s.c.s" | "s.c.s." | "s.s.":
-            return "SOCIETA_SEMPLICE"
-        case "s.n.c.":
-            return "SOCIETA_IN_NOME_COLLETTIVO"
-        case "s.a.s.":
-            return "SOCIETA_IN_ACCOMANDITA_SEMPLICE"
-        case "s.r.l.":
-            return "SOCIETA_A_RESPONSABILITA_LIMITATA"
-        case "s.r.l.s.":
-            return "SOCIETA_A_RESPONSABILITA_LIMITATA_SEMPLIFICATA"
-        case "s.p.a." | "s.p.a":
-            return "SOCIETA_PER_AZIONI"
-        case "s.a.p.a.":
-            return "SOCIETA_IN_ACCOMANDITA_PER_AZIONI"
-        case "comunita' montana":
-            return "SOCIETA_IN_ACCOMANDITA_PER_AZIONI"
-        case "consorzio":
-            return "CONSORZIO"
-        case "societa' cooperativa":
-            return "SOCIETA_COOPERATIVA"
-        case _:
-            return None
+    value = value.lower().strip()
+
+    company_form_mapping = {
+        "s.c.": "SOCIETA_SEMPLICE",
+        "s.c.s": "SOCIETA_SEMPLICE",
+        "s.c.s.": "SOCIETA_SEMPLICE",
+        "s.s.": "SOCIETA_SEMPLICE",
+        "s.n.c.": "SOCIETA_IN_NOME_COLLETTIVO",
+        "s.a.s.": "SOCIETA_IN_ACCOMANDITA_SEMPLICE",
+        "s.r.l.": "SOCIETA_A_RESPONSABILITA_LIMITATA",
+        "s.r.l.s.": "SOCIETA_A_RESPONSABILITA_LIMITATA_SEMPLIFICATA",
+        "s.p.a.": "SOCIETA_PER_AZIONI",
+        "s.p.a": "SOCIETA_PER_AZIONI",
+        "s.a.p.a.": "SOCIETA_IN_ACCOMANDITA_PER_AZIONI",
+        "comunita' montana": "SOCIETA_IN_ACCOMANDITA_PER_AZIONI",
+        "consorzio": "CONSORZIO",
+        "societa' cooperativa": "SOCIETA_COOPERATIVA",
+    }
+
+    return company_form_mapping.get(value)
 
 
 def map_company_nature(value: str | None) -> str:
@@ -74,29 +69,23 @@ def map_company_nature(value: str | None) -> str:
 
 
 def map_company_legal_form(value: str) -> str | None:
-    match value.lower().strip():
-        case "società" | "societa'":
-            return "SOCIETA"
-        case "impresa individuale":
-            return "IMPRESA_INDIVIDUALE"
-        case "consorzio":
-            return "CONSORZIO"
-        case "studio professionale":
-            return "STUDIO_PROFESSIONALE"
-        case "ente pubblico":
-            return "ENTE_PUBBLICO"
-        case "ente morale di diritto privato":
-            return "ENTE_MORALE_DI_DIRITTO_PRIVATO"
-        case "associazione":
-            return "ASSOCIAZIONE"
-        case "associazione temporanea di impresa":
-            return "ASSOCIAZIONE_TEMPORANEA_DI_IMPRESA"
-        case "ente ecclesiastico civilmente riconosciuto":
-            return "ENTE_ECCLESIASTICO_CIVILMENTE_RICONOSCIUTO"
-        case "fondazione":
-            return "FONDAZIONE"
-        case _:
-            return None
+    value = value.lower().strip()
+
+    legal_form_mapping = {
+        "società": "SOCIETA",
+        "societa'": "SOCIETA",
+        "impresa individuale": "IMPRESA_INDIVIDUALE",
+        "consorzio": "CONSORZIO",
+        "studio professionale": "STUDIO_PROFESSIONALE",
+        "ente pubblico": "ENTE_PUBBLICO",
+        "ente morale di diritto privato": "ENTE_MORALE_DI_DIRITTO_PRIVATO",
+        "associazione": "ASSOCIAZIONE",
+        "associazione temporanea di impresa": "ASSOCIAZIONE_TEMPORANEA_DI_IMPRESA",
+        "ente ecclesiastico civilmente riconosciuto": "ENTE_ECCLESIASTICO_CIVILMENTE_RICONOSCIUTO",
+        "fondazione": "FONDAZIONE",
+    }
+
+    return legal_form_mapping.get(value)
 
 
 def normalize_municipality_name(name: str) -> str:
@@ -115,10 +104,7 @@ def migrate_company_types(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_company_types = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL"
-    )
+    df_company_types = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL")
 
     ### TRANSFORM ###
     df_result = df_company_types.select(
@@ -165,32 +151,23 @@ def migrate_companies(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_titolare_model = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TITOLARE_MODEL"
-    )
+    df_titolare_model = extract_data(ctx, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
 
     df_tipologia_richiedente = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE"
+        ctx, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE"
     ).select(
         pl.col("CLIENTID").alias("ID_TIPO_RICH_FK"),
         pl.col("DESCR").alias("company_legal_form"),
     )
 
     df_natura_titolare_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
+        ctx, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
     ).select(
         pl.col("CLIENTID").alias("ID_NATURA_FK"),
         pl.col("DESCR").alias("company_nature"),
     )
 
-    df_municipalities = extract_data(
-        ctx,
-        "SELECT * FROM municipalities",
-        source="pg"
-    ).select(
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg").select(
         pl.col("id").alias("municipality_id"),
         pl.col("istat_code"),
     )
@@ -280,10 +257,7 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_struttura_model = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.STRUTTURA_MODEL"
-    )
+    df_struttura_model = extract_data(ctx, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
 
     ### TRANSFORM ###
     df_result = df_struttura_model.select(
@@ -323,9 +297,7 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
     df_result = df_result.with_columns(
         pl.col("extra").map_elements(
             lambda x: (
-                "{}"
-                if x["docway_file_id"] is None and x["area_id"] is None
-                else json.dumps(x)
+                "{}" if x["docway_file_id"] is None and x["area_id"] is None else json.dumps(x)
             ),
             return_dtype=pl.String,
         )
@@ -343,23 +315,15 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_sede_oper_model = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL"
-    )
+    df_sede_oper_model = extract_data(ctx, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
 
-    df_municipalities = extract_data(
-        ctx,
-        "SELECT * FROM municipalities",
-        source="pg"
-    ).select(
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg").select(
         pl.col("id"),
         pl.col("name").str.to_lowercase().alias("municipality_name"),
     )
 
     df_tipo_punto_fisico_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"
+        ctx, "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"
     ).select(
         pl.col("CLIENTID"),
         pl.col("NOME"),
@@ -448,10 +412,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_edificio_str_templ = extract_data(
-        ctx,
-        "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL"
-    )
+    df_edificio_str_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL")
 
     ### TRANSFORM ###
     df_result = df_edificio_str_templ.select(
@@ -462,9 +423,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         pl.col("CF_DI_PROPRIETA").str.strip_chars().alias("owner_tax_code"),
         pl.col("COGNOME_DI_PROPRIETA").str.strip_chars().alias("owner_last_name"),
         pl.col("NOME_DI_PROPRIETA").str.strip_chars().alias("owner_first_name"),
-        pl.col("RAGIONE_SOCIALE_DI_PROPRIETA")
-        .str.strip_chars()
-        .alias("owner_business_name"),
+        pl.col("RAGIONE_SOCIALE_DI_PROPRIETA").str.strip_chars().alias("owner_business_name"),
         pl.col("PIVA_DI_PROPRIETA").str.strip_chars().alias("owner_vat_number"),
         pl.when(pl.col("FLAG_DI_PROPRIETA") == 1)
         .then(True)
