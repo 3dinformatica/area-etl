@@ -16,6 +16,7 @@ from core import (
     truncate_postgresql_tables,
 )
 from location import (
+    migrate_districts,
     migrate_municipalities,
     migrate_provinces,
     migrate_regions,
@@ -27,6 +28,7 @@ from specialty import (
     migrate_specialties,
 )
 from udo import (
+    migrate_operational_units,
     migrate_production_factor_types,
     migrate_production_factors,
     migrate_udo_production_factors,
@@ -37,7 +39,6 @@ from udo import (
     migrate_udo_type_production_factor_types,
     migrate_udo_types,
     migrate_udos,
-    migrate_operational_units,
 )
 
 
@@ -83,6 +84,7 @@ def main() -> None:
         migrate_provinces(ctx)
         migrate_municipalities(ctx)
         migrate_toponyms(ctx)
+        migrate_districts(ctx)
         migrate_resolution_types(ctx)
         migrate_resolutions(ctx)
         migrate_company_types(ctx)

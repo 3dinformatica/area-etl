@@ -1,3 +1,101 @@
+----------------------------------------------------------LOCATION------------------------------------------------------
+-- Tables
+CREATE TABLE municipalities
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    istat_code  TEXT                     NOT NULL,
+    province_id UUID                     NOT NULL,
+    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_municipalities PRIMARY KEY (id),
+    CONSTRAINT uc_municipalities_istat_code UNIQUE (istat_code)
+);
+
+CREATE TABLE provinces
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    acronym     TEXT                     NOT NULL,
+    istat_code  TEXT                     NOT NULL,
+    region_id   UUID                     NOT NULL,
+    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_provinces PRIMARY KEY (id),
+    CONSTRAINT uc_provinces_name UNIQUE (name),
+    CONSTRAINT uc_provinces_istat_code UNIQUE (istat_code)
+);
+
+CREATE TABLE regions
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    istat_code  TEXT                     NOT NULL,
+    img_url     TEXT,
+    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_regions PRIMARY KEY (id),
+    CONSTRAINT uc_regions_name UNIQUE (name),
+    CONSTRAINT uc_regions_istat_code UNIQUE (istat_code)
+);
+
+CREATE TABLE toponyms
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_toponyms PRIMARY KEY (id),
+    CONSTRAINT uc_toponyms_name UNIQUE (name)
+);
+
+CREATE TABLE ulss
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    code        TEXT                     NOT NULL,
+    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_ulss PRIMARY KEY (id),
+    CONSTRAINT uc_ulss_name UNIQUE (name),
+    CONSTRAINT uc_ulss_code UNIQUE (code)
+);
+
+CREATE TABLE districts
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    name        TEXT                     NOT NULL,
+    code        INTEGER                  NOT NULL,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_districts PRIMARY KEY (id),
+    CONSTRAINT uc_districts_name UNIQUE (name)
+);
+
+-- Foreign key constraints
+ALTER TABLE municipalities
+    ADD CONSTRAINT fk_municipalities_province_id FOREIGN KEY (province_id)
+        REFERENCES provinces (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
+ALTER TABLE provinces
+    ADD CONSTRAINT fk_provinces_region_id FOREIGN KEY (region_id)
+        REFERENCES regions (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
 ----------------------------------------------------------USER----------------------------------------------------------
 -- Tables
 CREATE TABLE permissions
@@ -206,6 +304,12 @@ ALTER TABLE physical_structures
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
+ALTER TABLE physical_structures
+    ADD CONSTRAINT fk_physical_structures_district_id FOREIGN KEY (district_id)
+        REFERENCES districts (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
 ALTER TABLE buildings
     ADD CONSTRAINT fk_buildings_physical_structure_id FOREIGN KEY (physical_structure_id)
         REFERENCES physical_structures (id)
@@ -215,92 +319,6 @@ ALTER TABLE buildings
 ALTER TABLE operational_offices
     ADD CONSTRAINT fk_operational_officeses_physical_structure_id FOREIGN KEY (physical_structure_id)
         REFERENCES physical_structures (id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION;
-
-----------------------------------------------------------LOCATION------------------------------------------------------
--- Tables
-CREATE TABLE municipalities
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    istat_code  TEXT                     NOT NULL,
-    province_id UUID                     NOT NULL,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_municipalities PRIMARY KEY (id),
-    CONSTRAINT uc_municipalities_istat_code UNIQUE (istat_code)
-);
-
-CREATE TABLE provinces
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    acronym     TEXT                     NOT NULL,
-    istat_code  TEXT                     NOT NULL,
-    region_id   UUID                     NOT NULL,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_provinces PRIMARY KEY (id),
-    CONSTRAINT uc_provinces_name UNIQUE (name),
-    CONSTRAINT uc_provinces_istat_code UNIQUE (istat_code)
-);
-
-CREATE TABLE regions
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    istat_code  TEXT                     NOT NULL,
-    img_url     TEXT,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_regions PRIMARY KEY (id),
-    CONSTRAINT uc_regions_name UNIQUE (name),
-    CONSTRAINT uc_regions_istat_code UNIQUE (istat_code)
-);
-
-CREATE TABLE toponyms
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_toponyms PRIMARY KEY (id),
-    CONSTRAINT uc_toponyms_name UNIQUE (name)
-);
-
-CREATE TABLE ulss
-(
-    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    name        TEXT                     NOT NULL,
-    code        TEXT                     NOT NULL,
-    extra       JSONB                    NOT NULL DEFAULT '{}'::jsonb,
-    disabled_at TIMESTAMP WITH TIME ZONE,
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_ulss PRIMARY KEY (id),
-    CONSTRAINT uc_ulss_name UNIQUE (name),
-    CONSTRAINT uc_ulss_code UNIQUE (code)
-);
-
--- Foreign key constraints
-ALTER TABLE municipalities
-    ADD CONSTRAINT fk_municipalities_province_id FOREIGN KEY (province_id)
-        REFERENCES provinces (id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION;
-
-ALTER TABLE provinces
-    ADD CONSTRAINT fk_provinces_region_id FOREIGN KEY (region_id)
-        REFERENCES regions (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 

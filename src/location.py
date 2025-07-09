@@ -76,3 +76,41 @@ def migrate_toponyms(ctx: ETLContext) -> None:
 
     ### LOAD ###
     load_data(ctx, df_result, "toponyms")
+
+
+def migrate_districts(ctx: ETLContext) -> None:
+    ### EXTRACT ###
+    df_toponimo_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.DISTRETTO_TEMPL")
+
+    ### TRANSFORM ###
+    df_result = df_toponimo_templ.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("TITOLARE")
+        .str.strip_chars()
+        .str.strip_suffix("-")
+        .str.replace("-", " - ")
+        .alias("name"),
+        pl.col("DISTRETTO").alias("code"),
+        pl.col("CREATION")
+        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone(None)
+        .alias("created_at"),
+        pl.col("LAST_MOD")
+        .fill_null(pl.col("CREATION"))
+        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
+        pl.when(pl.col("DISABLED") == "S")
+        .then(
+            pl.col("LAST_MOD")
+            .fill_null(pl.col("CREATION"))
+            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone(None)
+        )
+        .otherwise(None)
+        .alias("disabled_at"),
+    )
+
+    ### LOAD ###
+    load_data(ctx, df_result, "districts")
