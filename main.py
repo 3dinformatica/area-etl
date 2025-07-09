@@ -37,6 +37,7 @@ from udo import (
     migrate_udo_type_production_factor_types,
     migrate_udo_types,
     migrate_udos,
+    migrate_operational_units,
 )
 
 
@@ -94,6 +95,7 @@ def main() -> None:
         migrate_production_factor_types(ctx)
         migrate_production_factors(ctx)
         migrate_udo_types(ctx)
+        migrate_operational_units(ctx)
         migrate_udos(ctx)
         migrate_udo_production_factors(ctx)
         migrate_udo_type_production_factor_types(ctx)

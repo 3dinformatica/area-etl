@@ -354,6 +354,20 @@ ALTER TABLE resolutions
 
 ----------------------------------------------------------UDO-----------------------------------------------------------
 -- Tables
+CREATE TABLE operational_units
+(
+    id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
+    code        TEXT                     NOT NULL,
+    name        TEXT                     NOT NULL,
+    description TEXT,
+    company_id  UUID                     NOT NULL,
+    disabled_at TIMESTAMP WITH TIME ZONE,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT pk_operational_units PRIMARY KEY (id),
+    CONSTRAINT uc_operational_units_code UNIQUE (code)
+);
+
 CREATE TABLE production_factor_types
 (
     id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
@@ -421,8 +435,8 @@ CREATE TABLE udo_production_factors
 -- TODO: Questa non c'è in udo-service
 CREATE TABLE udo_resolutions
 (
-    udo_id         UUID NOT NULL,
-    resolution_id  UUID NOT NULL,
+    udo_id        UUID NOT NULL,
+    resolution_id UUID NOT NULL,
     CONSTRAINT pk_udo_resolutions PRIMARY KEY (udo_id, resolution_id)
 );
 
@@ -524,6 +538,12 @@ CREATE TABLE udos
 );
 
 -- Foreign key constraints
+ALTER TABLE operational_units
+    ADD CONSTRAINT fk_operational_units_company_id FOREIGN KEY (company_id)
+        REFERENCES companies (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
 ALTER TABLE production_factors
     ADD CONSTRAINT fk_production_factors_production_factor_type_id FOREIGN KEY (production_factor_type_id)
         REFERENCES production_factor_types (id)
@@ -575,6 +595,12 @@ ALTER TABLE udo_type_production_factor_types
 ALTER TABLE udo_type_production_factor_types
     ADD CONSTRAINT fk_udo_type_production_factor_types_production_factor_type_id FOREIGN KEY (production_factor_type_id)
         REFERENCES production_factor_types (id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION;
+
+ALTER TABLE udos
+    ADD CONSTRAINT fk_udoes_operational_unit_id FOREIGN KEY (operational_unit_id)
+        REFERENCES operational_units (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 

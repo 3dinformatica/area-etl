@@ -907,3 +907,39 @@ def migrate_udos(ctx: ETLContext) -> None:
 
     ### LOAD ###
     load_data(ctx, df_result, "udos")
+
+
+def migrate_operational_units(ctx: ETLContext) -> None:
+    ### EXTRACT ###
+    df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
+
+    ### TRANSFORM ###
+    df_result = df_uo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("COD_UNIVOCO_UO").str.strip_chars().alias("code"),
+        pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
+        pl.col("DESCR").str.strip_chars().alias("description"),
+        pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
+        pl.col("CREATION")
+        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("created_at"),
+        pl.col("LAST_MOD")
+        .fill_null(pl.col("CREATION"))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
+        pl.when(pl.col("DISABLED") == "S")
+        .then(
+            pl.col("LAST_MOD")
+            .fill_null(pl.col("CREATION"))
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+            .dt.replace_time_zone(None)
+        )
+        .otherwise(None)
+        .alias("disabled_at"),
+    )
+
+    ### LOAD ###
+    load_data(ctx, df_result, "operational_units")
