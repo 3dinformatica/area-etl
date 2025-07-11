@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ORACLE_URI: str = "oracle://username:password@hostname:1521/service_name"
     PG_URI: str = "postgresql://username:password@localhost:5432/database_name"
     PG_TABLE_PREFIX: str = ""
+    ATTACHMENTS_DIR: str = "attachments"
 
     model_config = SettingsConfigDict(
         env_file=find_env_file(),

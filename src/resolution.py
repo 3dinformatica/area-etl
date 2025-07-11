@@ -1,8 +1,70 @@
+import logging
+import os
+import shutil
+import zipfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 import polars as pl
 
 from core import ETLContext, extract_data, load_data
+from src.settings import settings
+
+
+def download_attachments(
+    ctx: ETLContext,
+    df: pl.DataFrame,
+    chunk_size: int = 500,
+) -> None:
+    df_resolutions_with_files = df.drop_nulls("file_id").select(["id", "file_id"])
+    attachments_dir = Path(settings.ATTACHMENTS_DIR) / "resolutions"
+    attachments_dir.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Downloading {df_resolutions_with_files.height} attachments to {attachments_dir}")
+    ids = pl.Series(df_resolutions_with_files.select("file_id")).to_list()
+    id_chunks = [ids[i : i + chunk_size] for i in range(0, len(ids), chunk_size)]
+    logging.info(
+        f"{len(ids)} attachments divided into {len(id_chunks)} chunks with size {chunk_size}"
+    )
+    dfs_attachments = [
+        extract_data(
+            ctx,
+            f"SELECT * FROM AUAC_USR.BINARY_ATTACHMENTS_APPL WHERE CLIENTID IN ({','.join([f"'{id}'" for id in chunk])})",
+        )
+        for chunk in id_chunks
+    ]
+    df_attachments = pl.concat(dfs_attachments, how="vertical_relaxed")
+    df_result = df_resolutions_with_files.join(
+        df_attachments,
+        left_on="file_id",
+        right_on="CLIENTID",
+        how="left",
+    ).select(["id", "ALLEGATO", "NOME", "TIPO"])
+
+    for row in df_result.iter_rows():
+        resolution_id = row[0]
+        attachment_bytes = row[1]
+        attachment_name = row[2]
+        resolution_dir = attachments_dir / resolution_id
+        resolution_dir.mkdir(parents=True, exist_ok=True)
+        safe_attachment_name = attachment_name.replace("/", "_").replace("\\", "_")
+
+        with open(resolution_dir / safe_attachment_name, "wb") as f:
+            f.write(attachment_bytes)
+
+    # Create a ZIP file of the attachments directory
+    logging.info(f"Creating ZIP archive of {attachments_dir}")
+    zip_file_path = str(attachments_dir) + ".zip"
+    with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for root, _, files in os.walk(attachments_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, attachments_dir)
+                zipf.write(file_path, arcname)
+
+    # Delete the original directory after successful zipping
+    logging.info(f"Deleting original directory {attachments_dir}")
+    shutil.rmtree(attachments_dir)
+    logging.info(f"ZIP archive created at {zip_file_path}")
 
 
 def migrate_resolution_types(ctx: ETLContext) -> None:
@@ -14,7 +76,6 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_tipo_delibera = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_DELIBERA")
-
     df_tipo_atto = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_ATTO")
 
     ### TRANSFORM ###
@@ -87,7 +148,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_resolution_types = extract_data(ctx, "SELECT * FROM resolution_types", source="pg")
 
     ### TRANSFORM ###
-    # Column "id" is read as an object an not as a string
+    # Column "id" is read as an object and not as a string
     df_resolution_types = df_resolution_types.to_pandas()
     df_resolution_types["id"] = df_resolution_types["id"].astype("string")
     df_resolution_types = pl.from_pandas(df_resolution_types)
@@ -106,7 +167,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone("Europe/Rome")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # TODO: Missing actual file save to storage
+        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by download_attachments
         pl.col("N_BUR").cast(pl.String).str.strip_chars().alias("bur_number"),
         pl.col("DATA_BUR")
         .dt.replace_time_zone("Europe/Rome")
@@ -152,7 +213,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # TODO: Missing actual file save to storage
+        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by download_attachments
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -248,6 +309,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_delibera_templ = df_delibera_templ.select(sorted_cols)
     df_result = df_result.select(sorted_cols)
     df_result = pl.concat([df_delibera_templ, df_result], how="vertical_relaxed")
+    download_attachments(ctx, df_result, chunk_size=500)
 
     ### LOAD ###
     load_data(ctx, df_result, "resolutions")
