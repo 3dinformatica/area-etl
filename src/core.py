@@ -99,8 +99,12 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     # Apply table prefix if set
     prefixed_table_name = f"{settings.PG_TABLE_PREFIX}{table_name}"
 
-    df.write_database(table_name=prefixed_table_name, connection=ctx.pg_engine, if_table_exists="append")
-    logging.info(f"[{caller_module}] Loaded {df.height} rows into PostgreSQL table {prefixed_table_name}")
+    df.write_database(
+        table_name=prefixed_table_name, connection=ctx.pg_engine, if_table_exists="append"
+    )
+    logging.info(
+        f"[{caller_module}] Loaded {df.height} rows into PostgreSQL table {prefixed_table_name}"
+    )
 
 
 def truncate_postgresql_tables(ctx: ETLContext) -> None:
@@ -113,6 +117,7 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
             "provinces",
             "municipalities",
             "toponyms",
+            "districts",
             "company_types",
             "companies",
             "physical_structures",
@@ -126,6 +131,7 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
             "production_factor_types",
             "production_factors",
             "udo_types",
+            "operational_units",
             "udos",
             "udo_production_factors",
             "udo_type_production_factor_types",
