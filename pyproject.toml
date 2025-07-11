@@ -23,11 +23,8 @@ dev = [
 ]
 
 [tool.ruff]
-# Python version compatibility
 target-version = "py312"
-# Line length
 line-length = 100
-# Exclude a variety of commonly ignored directories
 exclude = [
     ".bzr",
     ".direnv",
