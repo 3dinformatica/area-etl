@@ -33,7 +33,7 @@ MUNICIPALITY_MAPPING = {
 }
 
 
-def map_company_form(value: str) -> str | None:
+def map_company_business_form(value: str) -> str | None:
     value = value.lower().strip()
 
     company_form_mapping = {
@@ -113,11 +113,11 @@ def migrate_company_types(ctx: ETLContext) -> None:
         pl.when(pl.col("SHOW_DICHIARAZIONE_DIR_SAN") == "S")
         .then(True)
         .otherwise(False)
-        .alias("is_show_health_director_declaration"),
+        .alias("is_show_health_director_declaration_poa"),
         pl.when(pl.col("ORGANIGRAMMA_ATTIVO") == "S")
         .then(True)
         .otherwise(False)
-        .alias("is_active_organization_chart"),
+        .alias("is_active_poa"),
         pl.col("CREATION")
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
         .dt.replace_time_zone("Europe/Rome")
@@ -157,14 +157,14 @@ def migrate_companies(ctx: ETLContext) -> None:
         ctx, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE"
     ).select(
         pl.col("CLIENTID").alias("ID_TIPO_RICH_FK"),
-        pl.col("DESCR").alias("company_legal_form"),
+        pl.col("DESCR").alias("legal_form"),
     )
 
     df_natura_titolare_templ = extract_data(
         ctx, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
     ).select(
         pl.col("CLIENTID").alias("ID_NATURA_FK"),
-        pl.col("DESCR").alias("company_nature"),
+        pl.col("DESCR").alias("nature"),
     )
 
     df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg").select(
@@ -196,17 +196,17 @@ def migrate_companies(ctx: ETLContext) -> None:
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("CODICEUNIVOCO").str.strip_chars().alias("code"),
-        pl.col("RAG_SOC").str.strip_chars().alias("company_name"),
+        pl.col("RAG_SOC").str.strip_chars().alias("business_name"),
         pl.col("FORMA_SOCIETARIA")
         .str.to_lowercase()
         .str.strip_chars()
-        .alias("company_form")
-        .map_elements(map_company_form, return_dtype=pl.String),
-        pl.col("company_legal_form")
+        .alias("business_form")
+        .map_elements(map_company_business_form, return_dtype=pl.String),
+        pl.col("legal_form")
         .str.to_lowercase()
         .str.strip_chars()
         .map_elements(map_company_legal_form, return_dtype=pl.String),
-        pl.col("company_nature")
+        pl.col("nature")
         .str.to_lowercase()
         .str.strip_chars()
         .map_elements(map_company_nature, return_dtype=pl.String)
