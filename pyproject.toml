@@ -6,20 +6,20 @@ requires-python = ">=3.12"
 dependencies = [
     "connectorx>=0.4.3",
     "cx-oracle>=8.3.0",
-    "jupyterlab>=4.4.4",
+    "jupyterlab>=4.4.5",
     "oracledb>=3.2.0",
     "pandas>=2.3.1",
     "pandas-stubs>=2.3.0.250703",
     "polars>=1.31.0",
     "psycopg2-binary>=2.9.10",
-    "pyarrow>=20.0.0",
+    "pyarrow>=21.0.0",
     "pydantic-settings>=2.10.1",
     "sqlalchemy>=2.0.41",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.12.3",
+    "ruff>=0.12.4",
 ]
 
 [tool.ruff]
