@@ -21,6 +21,7 @@ from location import (
     migrate_provinces,
     migrate_regions,
     migrate_toponyms,
+    migrate_ulss,
 )
 from resolution import migrate_resolution_types, migrate_resolutions
 from specialty import (
@@ -35,10 +36,10 @@ from udo import (
     migrate_udo_resolutions,
     migrate_udo_specialties_from_branches,
     migrate_udo_specialties_from_disciplines,
-    migrate_udo_status_history,
     migrate_udo_type_production_factor_types,
     migrate_udo_types,
     migrate_udos,
+    migrate_udos_history,
 )
 
 
@@ -85,6 +86,7 @@ def main() -> None:
         migrate_municipalities(ctx)
         migrate_toponyms(ctx)
         migrate_districts(ctx)
+        migrate_ulss(ctx)
         migrate_resolution_types(ctx)
         migrate_resolutions(ctx)
         migrate_company_types(ctx)
@@ -104,7 +106,7 @@ def main() -> None:
         migrate_udo_specialties_from_branches(ctx)
         migrate_udo_specialties_from_disciplines(ctx)
         migrate_udo_resolutions(ctx)
-        migrate_udo_status_history(ctx)
+        migrate_udos_history(ctx)
 
         end_time = datetime.now()
         elapsed_time = end_time - start_time

@@ -595,7 +595,7 @@ def migrate_udo_resolutions(ctx: ETLContext) -> None:
     load_data(ctx, df_result, "udo_resolutions")
 
 
-def migrate_udo_status_history(ctx: ETLContext) -> None:
+def migrate_udos_history(ctx: ETLContext) -> None:
     """
     Migrates UDO status history data.
 

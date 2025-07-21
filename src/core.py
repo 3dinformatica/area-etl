@@ -136,8 +136,9 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
             "udo_production_factors",
             "udo_type_production_factor_types",
             "udo_specialties",
-            "udo_resolutions",
-            "udo_status_history",
+            # "udo_resolutions",
+            "udos_history",
+            "ulss",
             "resolutions",
             "resolution_types",
         ]
@@ -187,8 +188,9 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
         "udo_production_factors",
         "udo_type_production_factor_types",
         "udo_specialties",
-        "udo_resolutions",
-        "udo_status_history",
+        # "udo_resolutions",
+        "udos_history",
+        "ulss",
         "resolutions",
         "resolution_types",
     ]
