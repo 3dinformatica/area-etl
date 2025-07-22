@@ -400,7 +400,7 @@ CREATE TABLE public.udos
     operational_office_id         UUID,
     building_id                   UUID,
     company_id                    UUID                                               NOT NULL,
-    operational_unit_id           UUID                                               NOT NULL,
+    operational_unit_id           UUID,
     disabled_at                   TIMESTAMP WITH TIME ZONE,
     created_at                    TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
     updated_at                    TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
