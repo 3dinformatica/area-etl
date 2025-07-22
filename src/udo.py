@@ -403,7 +403,6 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("AGGIUNGI_AMBITO").alias("has_scopes"),
         pl.col("NATURE").alias("company_natures"),
         pl.col("FLUSSI").alias("ministerial_flows"),
-        pl.lit("{}").alias("extra"),
         pl.when(pl.col("DISABLED") == "S")
         .then(
             pl.col("LAST_MOD")
@@ -721,9 +720,6 @@ def migrate_udos_history(ctx: ETLContext) -> None:
         pl.col("mortuary_beds").fill_null(0),
     )
 
-    # Add extra column as empty JSON
-    df_result = df_result.with_columns(pl.lit("{}").alias("extra"))
-
     # Verify UDO IDs exist in the udos table
     try:
         df_udos = pl.read_database(
@@ -925,9 +921,6 @@ def migrate_udos(ctx: ETLContext) -> None:
 
     # Drop unnecessary columns
     df_result = df_result.drop(["PROVENIENZA_UO", "ID_UO"])
-
-    # Add extra column as empty JSON
-    df_result = df_result.with_columns(pl.lit("{}").alias("extra"))
 
     # Filter out invalid UDO types
     invalid_udo_types = [
