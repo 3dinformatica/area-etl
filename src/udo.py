@@ -82,13 +82,13 @@ def migrate_production_factors(ctx: ETLContext) -> None:
         .replace(["", "?"], "0")
         .fill_null("0")
         .cast(pl.UInt16)
-        .alias("beds"),
+        .alias("num_beds"),
         pl.col("VALORE3")
         .str.strip_chars()
         .replace(["", "?"], "0")
         .fill_null("0")
         .cast(pl.UInt16)
-        .alias("hospital_beds"),
+        .alias("num_hospital_beds"),
         pl.col("VALORE2").str.strip_chars().replace(["NUL"], None).alias("room_name"),
         pl.col("DESCR").str.strip_chars().replace(["NUL"], None).alias("room_code"),
         pl.col("CREATION")
@@ -114,6 +114,41 @@ def migrate_production_factors(ctx: ETLContext) -> None:
 
     ### LOAD ###
     load_data(ctx, df_result, "production_factors")
+
+
+def migrate_udo_type_classifications(ctx: ETLContext) -> None:
+    ### EXTRACT ###
+    df_classificazione_udo_templ = extract_data(
+        ctx, "SELECT * FROM AUAC_USR.CLASSIFICAZIONE_UDO_TEMPL"
+    )
+
+    ### TRANSFORM ###
+    df_result = df_classificazione_udo_templ.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("NOME").str.strip_chars().alias("name"),
+        pl.col("CREATION")
+        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("created_at"),
+        pl.col("LAST_MOD")
+        .fill_null(pl.col("CREATION"))
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
+        pl.when(pl.col("DISABLED") == "S")
+        .then(
+            pl.col("LAST_MOD")
+            .fill_null(pl.col("CREATION"))
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
+            .dt.replace_time_zone(None)
+        )
+        .otherwise(None)
+        .alias("disabled_at"),
+    )
+
+    ### LOAD ###
+    load_data(ctx, df_result, "udo_type_classifications")
 
 
 def migrate_udo_types(ctx: ETLContext) -> None:
@@ -350,7 +385,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("NOME_CODICE_UDO").alias("code_name"),
         pl.col("SETTING").alias("setting"),
         pl.col("TARGET").alias("target"),
-        pl.col("ID_CLASSIFICAZIONE_UDO_FK").alias("classification_id"),
+        pl.col("ID_CLASSIFICAZIONE_UDO_FK").alias("udo_type_classification_id"),
         pl.col("OSPEDALIERO").alias("is_hospital"),
         pl.col("SALUTE_MENTALE").alias("is_mental_health"),
         pl.col("POSTI_LETTO").alias("has_beds"),
