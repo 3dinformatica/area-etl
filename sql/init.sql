@@ -158,6 +158,7 @@ CREATE TABLE public.physical_structures
     disabled_at    TIMESTAMP WITH TIME ZONE,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
     updated_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
+    extra          JSONB,
     CONSTRAINT pk_physical_structures PRIMARY KEY (id),
     CONSTRAINT unique_physical_structures_code UNIQUE (code)
 );
