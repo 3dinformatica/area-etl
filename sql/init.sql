@@ -10,6 +10,7 @@ CREATE TABLE public.buildings
     owner_business_name   TEXT,
     owner_tax_code        TEXT,
     physical_structure_id UUID                                               NOT NULL,
+    extra                 JSONB,
     disabled_at           TIMESTAMP WITH TIME ZONE,
     created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
     updated_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
@@ -155,10 +156,10 @@ CREATE TABLE public.physical_structures
     secondary_code TEXT,
     company_id     UUID                                               NOT NULL,
     district_id    UUID,
+    extra          JSONB,
     disabled_at    TIMESTAMP WITH TIME ZONE,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
     updated_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
-    extra          JSONB,
     CONSTRAINT pk_physical_structures PRIMARY KEY (id),
     CONSTRAINT unique_physical_structures_code UNIQUE (code)
 );
