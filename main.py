@@ -36,6 +36,7 @@ from udo import (
     migrate_udo_resolutions,
     migrate_udo_specialties_from_branches,
     migrate_udo_specialties_from_disciplines,
+    migrate_udo_type_classifications,
     migrate_udo_type_production_factor_types,
     migrate_udo_types,
     migrate_udos,
@@ -98,6 +99,7 @@ def main() -> None:
         migrate_specialties(ctx)
         migrate_production_factor_types(ctx)
         migrate_production_factors(ctx)
+        migrate_udo_type_classifications(ctx)
         migrate_udo_types(ctx)
         migrate_operational_units(ctx)
         migrate_udos(ctx)
