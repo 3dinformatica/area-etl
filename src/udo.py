@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import polars as pl
 
 from core import ETLContext, extract_data, load_data
+from src.settings import settings
 
 
 def migrate_production_factor_types(ctx: ETLContext) -> None:
@@ -723,7 +724,7 @@ def migrate_udos_history(ctx: ETLContext) -> None:
     # Verify UDO IDs exist in the udos table
     try:
         df_udos = pl.read_database(
-            "SELECT id FROM udos",
+            f"SELECT id FROM {settings.PG_TABLE_PREFIX}udos",
             connection=ctx.pg_engine,
             infer_schema_length=None,
         )
@@ -773,6 +774,15 @@ def migrate_udos(ctx: ETLContext) -> None:
 
     # Extract company data
     df_titolare = extract_data(ctx, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
+
+    # Extract valid building IDs from PostgreSQL
+    df_buildings = extract_data(
+        ctx, 
+        f"SELECT id FROM {settings.PG_TABLE_PREFIX}buildings", 
+        source="postgresql"
+    )
+    # Convert all building IDs to strings and then lowercase for case-insensitive comparison
+    valid_building_ids = set(str(id).lower() if id is not None else None for id in df_buildings["id"].to_list())
 
     # Extract UO_MODEL data for operational units
     try:
@@ -874,6 +884,31 @@ def migrate_udos(ctx: ETLContext) -> None:
         .alias("disabled_at"),
     )
 
+    # Check if building_ids exist in the buildings table
+    # If not, log a warning and set them to NULL
+    invalid_building_ids = []
+    
+    def check_building_id(row):
+        building_id = row["building_id"]
+        if building_id is not None:
+            # Convert to string and then lowercase for case-insensitive comparison
+            if str(building_id).lower() not in valid_building_ids:
+                invalid_building_ids.append(building_id)
+                return None
+        return building_id
+    
+    # Apply the check to each row
+    df_result = df_result.with_columns(
+        pl.struct(["building_id"]).map_elements(
+            lambda row: check_building_id(row),
+            return_dtype=pl.String
+        ).alias("building_id")
+    )
+    
+    # Log warnings for invalid building_ids
+    for building_id in set(invalid_building_ids):
+        logging.warning(f"Building ID {building_id} not found in buildings table. Setting to NULL.")
+    
     # Join with operational office, structure, and company data
     df_sede_struttura = df_sede_oper.select(
         pl.col("CLIENTID").alias("operational_office_id"),
