@@ -42,6 +42,7 @@ from udo import (
     migrate_udos,
     migrate_udos_history,
 )
+from user import migrate_users
 
 
 def parse_args():
@@ -88,20 +89,19 @@ def main() -> None:
         migrate_toponyms(ctx)
         migrate_districts(ctx)
         migrate_ulss(ctx)
-        migrate_resolution_types(ctx)
-        migrate_resolutions(ctx)
         migrate_company_types(ctx)
         migrate_companies(ctx)
         migrate_physical_structures(ctx)
         migrate_operational_offices(ctx)
         migrate_buildings(ctx)
+        migrate_operational_units(ctx)
+        migrate_users(ctx)
         migrate_grouping_specialties(ctx)
         migrate_specialties(ctx)
         migrate_production_factor_types(ctx)
         migrate_production_factors(ctx)
         migrate_udo_type_classifications(ctx)
         migrate_udo_types(ctx)
-        migrate_operational_units(ctx)
         migrate_udos(ctx)
         migrate_udo_production_factors(ctx)
         migrate_udo_type_production_factor_types(ctx)
@@ -109,6 +109,8 @@ def main() -> None:
         migrate_udo_specialties_from_disciplines(ctx)
         migrate_udo_resolutions(ctx)
         migrate_udos_history(ctx)
+        migrate_resolution_types(ctx)
+        migrate_resolutions(ctx)
 
         end_time = datetime.now()
         elapsed_time = end_time - start_time
