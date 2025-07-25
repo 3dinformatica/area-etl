@@ -1,9 +1,9 @@
 import inspect
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import polars as pl
@@ -160,7 +160,9 @@ def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.Data
     return df
 
 
-def extract_data_from_csv(file_path: str, schema_overrides: Optional[dict] = None) -> pl.DataFrame:
+def extract_data_from_csv(
+    file_path: str | os.PathLike, schema_overrides: dict | None = None
+) -> pl.DataFrame:
     """
     Extract data from a CSV file and log the extraction.
 
@@ -179,7 +181,8 @@ def extract_data_from_csv(file_path: str, schema_overrides: Optional[dict] = Non
     caller_module = get_caller_module()
 
     df = pl.read_csv(file_path, schema_overrides=schema_overrides)
-    logging.info(f"[{caller_module}] Extracted {df.height} rows from CSV file {file_path}")
+    absolute_path = Path(file_path).absolute()
+    logging.info(f"[{caller_module}] Extracted {df.height} rows from CSV file {absolute_path}")
     return df
 
 
