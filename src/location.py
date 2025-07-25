@@ -3,7 +3,7 @@ from datetime import datetime
 import polars as pl
 import pytz
 
-from core import ETLContext, extract_data, extract_data_from_csv, handle_timestamps, load_data
+from utils import ETLContext, extract_data, extract_data_from_csv, handle_timestamps, load_data
 
 
 def migrate_regions(ctx: ETLContext) -> None:

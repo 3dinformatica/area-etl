@@ -9,12 +9,6 @@ from company import (
     migrate_operational_offices,
     migrate_physical_structures,
 )
-from core import (
-    export_tables_to_csv,
-    setup_connections,
-    setup_logging,
-    truncate_postgresql_tables,
-)
 from location import (
     migrate_districts,
     migrate_municipalities,
@@ -43,6 +37,13 @@ from udo import (
     migrate_udos_history,
 )
 from user import migrate_user_companies, migrate_users
+from utils import (
+    export_tables_to_csv,
+    format_elapsed_time,
+    setup_connections,
+    setup_logging,
+    truncate_postgresql_tables,
+)
 
 
 def parse_args():
@@ -70,27 +71,6 @@ def parse_args():
         help="Directory where CSV files will be saved (default: 'export')",
     )
     return parser.parse_args()
-
-
-def format_elapsed_time(start_time: datetime) -> str:
-    """
-    Calculate and format the elapsed time since start_time.
-
-    Parameters
-    ----------
-    start_time : datetime
-        The starting time
-
-    Returns
-    -------
-    str
-        Formatted string representing elapsed time in hours, minutes, and seconds
-    """
-    end_time = datetime.now()
-    elapsed_time = end_time - start_time
-    hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{int(hours)}h {int(minutes)}m {seconds:.2f}s"
 
 
 def main() -> None:

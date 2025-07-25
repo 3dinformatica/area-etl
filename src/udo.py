@@ -2,8 +2,8 @@ import logging
 
 import polars as pl
 
-from core import ETLContext, extract_data, handle_timestamps, load_data
 from src.settings import settings
+from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
 def migrate_production_factor_types(ctx: ETLContext) -> None:

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import polars as pl
 
-from core import ETLContext, extract_data, handle_timestamps, load_data
 from src.settings import settings
+from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
 def download_attachments(

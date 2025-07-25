@@ -2,7 +2,7 @@ import json
 
 import polars as pl
 
-from core import ETLContext, extract_data, handle_timestamps, load_data
+from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 MUNICIPALITY_MAPPING = {
     "masera' di padova": "maserà di padova",

@@ -424,3 +424,24 @@ def handle_timestamps(
             disabled_col, disabled_value, last_mod_col, creation_col, direct_disabled_col
         ),
     }
+
+
+def format_elapsed_time(start_time: datetime) -> str:
+    """
+    Calculate and format the elapsed time since start_time.
+
+    Parameters
+    ----------
+    start_time : datetime
+        The starting time
+
+    Returns
+    -------
+    str
+        Formatted string representing elapsed time in hours, minutes, and seconds
+    """
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{int(hours)}h {int(minutes)}m {seconds:.2f}s"

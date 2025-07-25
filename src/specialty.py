@@ -1,6 +1,6 @@
 import polars as pl
 
-from core import ETLContext, extract_data, handle_timestamps, load_data
+from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
 def map_macroarea(value: str | None) -> str | None:

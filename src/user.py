@@ -2,7 +2,7 @@ import logging
 
 import polars as pl
 
-from core import ETLContext, extract_data, handle_timestamps, load_data
+from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
 def map_user_role(value: str) -> str:
