@@ -35,7 +35,7 @@ MUNICIPALITY_MAPPING = {
 
 def map_company_business_form(value: str) -> str | None:
     """
-    Map company business form abbreviations to standardized values.
+    Map company business forms abbreviations to standardized values.
 
     Parameters
     ----------
@@ -309,7 +309,9 @@ def migrate_companies(ctx: ETLContext) -> None:
 
 def migrate_physical_structures(ctx: ETLContext) -> None:
     """
-    Migrate companies physical structures from ORACLE table "AUAC_USR.STRUTTURA_MODEL" to PostgreSQL table
+    Migrate companies' physical structures from ORACLE to PostgreSQL.
+
+    Transfers data from ORACLE table "AUAC_USR.STRUTTURA_MODEL" to PostgreSQL table
     "physical_structures".
 
     Parameters
@@ -370,7 +372,9 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
 
 def migrate_operational_offices(ctx: ETLContext) -> None:
     """
-    Migrate companies' operational offices from ORACLE table "AUAC_USR.SEDE_OPER_MODEL" to PostgreSQL table
+    Migrate companies' operational offices from ORACLE to PostgreSQL.
+
+    Transfers data from ORACLE table "AUAC_USR.SEDE_OPER_MODEL" to PostgreSQL table
     "operational_offices".
 
     Parameters

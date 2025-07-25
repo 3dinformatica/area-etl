@@ -6,6 +6,23 @@ from core import ETLContext, extract_data, load_data
 
 
 def map_macroarea(value: str | None) -> str | None:
+    """Map a macroarea string to a standardized format.
+
+    This function takes a string representing a macroarea, converts it to lowercase,
+    removes leading and trailing whitespace, and maps it to a standardized value
+    using a predefined dictionary. If the value is not found in the mapping,
+    the original value is returned.
+
+    Parameters
+    ----------
+    value: str | None
+        The macroarea string to be mapped or None
+
+    Returns
+    -------
+    str | None
+        The standardized macroarea value or None if the input is None
+    """
     if not value:
         return None
 
@@ -22,6 +39,23 @@ def map_macroarea(value: str | None) -> str | None:
 
 
 def map_specialty_type(value: str) -> str | None:
+    """Map a specialty type string to a standardized format.
+
+    This function takes a string representing a specialty type, converts it to lowercase,
+    removes leading and trailing whitespace, and maps it to a standardized value
+    using a match-case statement. If the value doesn't match any of the defined cases,
+    None is returned.
+
+    Parameters
+    ----------
+    value: str
+        The specialty type string to be mapped
+
+    Returns
+    -------
+    str | None
+        The standardized specialty type value or None if no match is found
+    """
     match value.lower().strip():
         case "alt":
             return "ALTRO"
@@ -36,11 +70,15 @@ def map_specialty_type(value: str) -> str | None:
 
 
 def migrate_grouping_specialties(ctx: ETLContext) -> None:
-    """
-    Migrate grouping specialties from Oracle to PostgreSQL.
+    """Migrate grouping specialties from Oracle to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Transfers data from the Oracle table "AUAC_USR.RAGG_DISCPL" to the PostgreSQL table
+    "grouping_specialties".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_ragg_discpl = extract_data(ctx, "SELECT * FROM AUAC_USR.RAGG_DISCPL")
@@ -89,17 +127,19 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
 
 
 def migrate_specialties(ctx: ETLContext) -> None:
-    """
-    Migrate specialties from Oracle to PostgreSQL.
+    """Migrate specialties from Oracle to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Transfers data from the Oracle tables "AUAC_USR.DISCIPLINA_TEMPL", "AUAC_USR.BRANCA_TEMPL",
+    "ARTIC_BRANCA_ALTRO_TEMPL" to the PostgreSQL table "specialties".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_disciplina_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL")
-
     df_branca_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.BRANCA_TEMPL")
-
     df_artic_branca_altro_templ = extract_data(
         ctx, "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"
     )

@@ -24,6 +24,27 @@ def find_env_file() -> str:
 
 
 class Settings(BaseSettings):
+    """
+    Application configuration settings loaded from environment variables or .env file.
+
+    This class defines the configuration settings for the ETL process, including
+    database connection strings and file paths. Settings can be loaded from
+    environment variables or a .env file.
+
+    Attributes
+    ----------
+    ORACLE_CLIENT_LIB_DIR: str
+        Path to Oracle Instant Client directory
+    ORACLE_URI: str
+        Connection string for Oracle database
+    PG_URI: str
+        Connection string for PostgreSQL database
+    PG_TABLE_PREFIX: str
+        Prefix for PostgreSQL tables
+    ATTACHMENTS_DIR: str
+        Directory for storing attachments
+    """
+
     ORACLE_CLIENT_LIB_DIR: str = "/path/to/instantclient"
     ORACLE_URI: str = "oracle://username:password@hostname:1521/service_name"
     PG_URI: str = "postgresql://username:password@localhost:5432/database_name"

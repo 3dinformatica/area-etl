@@ -7,6 +7,22 @@ from core import ETLContext, extract_data, load_data
 
 
 def map_user_role(value: str) -> str:
+    """
+    Map a user role string to a standardized format.
+
+    Converts the input string to lowercase and maps it to one of the standard role types
+    based on keyword matching.
+
+    Parameters
+    ----------
+    value: str
+        The user role string to be mapped
+
+    Returns
+    -------
+    str
+        The standardized role value: "REGIONAL_OPERATOR", "ADMIN", or "OPERATOR"
+    """
     value = value.lower()
 
     if "region" in value:
@@ -18,6 +34,17 @@ def map_user_role(value: str) -> str:
 
 
 def migrate_users(ctx: ETLContext) -> None:
+    """
+    Migrate users from Oracle to PostgreSQL.
+
+    Extracts user data from Oracle tables "AUAC_USR.UTENTE_MODEL" and "AUAC_USR.ANAGRAFICA_UTENTE_MODEL",
+    transforms it, and loads it into the PostgreSQL "users" table.
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
     df_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
     df_anagrafica_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL")
@@ -98,6 +125,17 @@ def migrate_users(ctx: ETLContext) -> None:
 
 
 def migrate_permissions(ctx: ETLContext) -> None:
+    """
+    Migrate permissions from CSV to PostgreSQL.
+
+    Loads permission data from the seed/permissions.csv file into the PostgreSQL
+    "permissions" table.
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
     df = pl.read_csv("seed/permissions.csv")
 
@@ -107,17 +145,21 @@ def migrate_permissions(ctx: ETLContext) -> None:
 
 
 def migrate_user_companies(ctx: ETLContext) -> None:
+    """
+    Migrate user-company relationships from Oracle to PostgreSQL.
+
+    Extracts user-company relationship data from Oracle tables "AUAC_USR.UTENTE_MODEL" and
+    "AUAC_USR.OPERATORE_MODEL", transforms it, and loads it into the PostgreSQL
+    "user_companies" table.
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
-    df_utente_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.UTENTE_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    df_operatore_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.OPERATORE_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
+    df_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
+    df_operatore_model = extract_data(ctx, "SELECT * FROM AUAC_USR.OPERATORE_MODEL")
 
     ### TRANSFORM ###
     df_user = df_utente_model.select(
@@ -133,8 +175,8 @@ def migrate_user_companies(ctx: ETLContext) -> None:
         pl.col("LAST_MOD")
         .fill_null(pl.col("CREATION"))
         .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None),
-        pl.lit(None).alias("disabled_at"),
+        .dt.replace_time_zone(None)
+        .alias("updated_at"),
     )
 
     df_operator = df_operatore_model.select(

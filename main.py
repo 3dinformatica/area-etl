@@ -42,10 +42,21 @@ from udo import (
     migrate_udos,
     migrate_udos_history,
 )
-from user import migrate_users
+from user import migrate_user_companies, migrate_users
 
 
 def parse_args():
+    """
+    Parse command-line arguments for the ETL process.
+
+    Sets up an argument parser with options for exporting to CSV and specifying
+    the export directory.
+
+    Returns
+    -------
+    argparse.Namespace
+        The parsed command-line arguments
+    """
     parser = argparse.ArgumentParser(description="A.Re.A. ETL process")
     parser.add_argument(
         "--export-csv",
@@ -62,6 +73,16 @@ def parse_args():
 
 
 def main() -> None:
+    """
+    Execute the A.Re.A. ETL process.
+
+    This is the main entry point for the ETL process. It parses command-line arguments,
+    sets up logging, and either exports tables to CSV or runs the full ETL process,
+    which includes migrating data from various sources to PostgreSQL tables.
+
+    The function measures and logs the total execution time and handles any exceptions
+    that occur during the process.
+    """
     args = parse_args()
     setup_logging()
     start_time = datetime.now()
@@ -96,6 +117,7 @@ def main() -> None:
         migrate_buildings(ctx)
         migrate_operational_units(ctx)
         migrate_users(ctx)
+        migrate_user_companies(ctx)
         migrate_grouping_specialties(ctx)
         migrate_specialties(ctx)
         migrate_production_factor_types(ctx)

@@ -118,6 +118,17 @@ def migrate_production_factors(ctx: ETLContext) -> None:
 
 
 def migrate_udo_type_classifications(ctx: ETLContext) -> None:
+    """
+    Migrate UDO type classifications from Oracle to PostgreSQL.
+
+    Transfers data from the Oracle table "AUAC_USR.CLASSIFICAZIONE_UDO_TEMPL" to the PostgreSQL table
+    "udo_type_classifications".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
     df_classificazione_udo_templ = extract_data(
         ctx, "SELECT * FROM AUAC_USR.CLASSIFICAZIONE_UDO_TEMPL"
@@ -493,12 +504,15 @@ def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
 
 def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
     """
-    Migrates branches data to specialties.
+    Migrate branches data to specialties.
+
     This replaces the old migrate_udo_branches function as disciplines and branches
     have been merged into specialties.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_bind_udo_branca = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA")
@@ -541,11 +555,14 @@ def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
 
 def migrate_udo_specialties_from_disciplines(ctx: ETLContext) -> None:
     """
-    Migrates disciplines data to specialties.
+    Migrate disciplines data to specialties.
+
     Disciplines and branches have been merged into specialties.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_bind_udo_disciplina = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA")
@@ -971,6 +988,17 @@ def migrate_udos(ctx: ETLContext) -> None:
 
 
 def migrate_operational_units(ctx: ETLContext) -> None:
+    """
+    Migrate operational units from Oracle to PostgreSQL.
+
+    Transfers data from the Oracle table "AUAC_USR.UO_MODEL" to the PostgreSQL table
+    "operational_units".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
     df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
 

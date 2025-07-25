@@ -16,6 +16,22 @@ def download_attachments(
     df: pl.DataFrame,
     chunk_size: int = 500,
 ) -> None:
+    """
+    Download resolution attachments from Oracle and save them as a ZIP archive.
+
+    This function extracts attachment files from the Oracle database based on file IDs
+    in the provided DataFrame, saves them to a directory structure organized by resolution ID,
+    creates a ZIP archive of all attachments, and then deletes the original directory.
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    df: pl.DataFrame
+        DataFrame containing resolution data with file_id column
+    chunk_size: int, default=500
+        Number of file IDs to process in each database query chunk
+    """
     df_resolutions_with_files = df.drop_nulls("file_id").select(["id", "file_id"])
     attachments_dir = Path(settings.ATTACHMENTS_DIR) / "resolutions"
     attachments_dir.mkdir(parents=True, exist_ok=True)
