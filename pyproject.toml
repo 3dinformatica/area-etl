@@ -52,7 +52,7 @@ exclude = [
 [tool.ruff.lint]
 # Enable pycodestyle (E), Pyflakes (F), isort (I), and more
 select = ["E", "F", "I", "W", "N", "B", "C4", "ARG", "SIM", "ERA", "PL", "RUF", "D"]
-ignore = ["E203", "E501"]
+ignore = ["E203", "E501", "D100"]
 # Allow autofix for all enabled rules (when `--fix`) is provided
 fixable = ["ALL"]
 unfixable = []
