@@ -72,6 +72,27 @@ def parse_args():
     return parser.parse_args()
 
 
+def format_elapsed_time(start_time: datetime) -> str:
+    """
+    Calculate and format the elapsed time since start_time.
+
+    Parameters
+    ----------
+    start_time : datetime
+        The starting time
+
+    Returns
+    -------
+    str
+        Formatted string representing elapsed time in hours, minutes, and seconds
+    """
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{int(hours)}h {int(minutes)}m {seconds:.2f}s"
+
+
 def main() -> None:
     """
     Execute the A.Re.A. ETL process.
@@ -93,11 +114,8 @@ def main() -> None:
         if args.export_csv:
             logging.info("Starting CSV export process...")
             export_tables_to_csv(ctx, args.export_dir)
-            end_time = datetime.now()
-            elapsed_time = end_time - start_time
-            hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-            minutes, seconds = divmod(remainder, 60)
-            logging.info(f"Total export time: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
+            elapsed_time = format_elapsed_time(start_time)
+            logging.info(f"Total export time: {elapsed_time}")
             logging.info("CSV export completed successfully")
             return
 
@@ -134,19 +152,13 @@ def main() -> None:
         migrate_resolution_types(ctx)
         migrate_resolutions(ctx)
 
-        end_time = datetime.now()
-        elapsed_time = end_time - start_time
-        hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        logging.info(f"Total migration time: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
+        elapsed_time = format_elapsed_time(start_time)
+        logging.info(f"Total migration time: {elapsed_time}")
         logging.info("ETL process completed successfully")
     except Exception as e:
-        end_time = datetime.now()
-        elapsed_time = end_time - start_time
-        hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-        minutes, seconds = divmod(remainder, 60)
+        elapsed_time = format_elapsed_time(start_time)
         logging.error(
-            f"Error during execution after {int(hours)}h {int(minutes)}m {seconds:.2f}s: {e!s}",
+            f"Error during execution after {elapsed_time}: {e!s}",
             exc_info=True,
         )
         raise
