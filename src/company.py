@@ -34,6 +34,19 @@ MUNICIPALITY_MAPPING = {
 
 
 def map_company_business_form(value: str) -> str | None:
+    """
+    Map company business form abbreviations to standardized values.
+
+    Parameters
+    ----------
+    value : str
+        The company business form abbreviation to map (e.g., "s.r.l.", "s.p.a.")
+
+    Returns
+    -------
+    str or None
+        The standardized company business form value, or None if no mapping exists
+    """
     value = value.lower().strip()
 
     company_form_mapping = {
@@ -57,6 +70,22 @@ def map_company_business_form(value: str) -> str | None:
 
 
 def map_company_nature(value: str | None) -> str:
+    """
+    Map company nature descriptions to standardized values.
+
+    Parameters
+    ----------
+    value : str or None
+        The company nature description to map
+
+    Returns
+    -------
+    str
+        The standardized company nature value. Defaults to "PRIVATO" if no mapping exists
+    """
+    if value is None:
+        return "PRIVATO"
+
     value = value.lower().strip()
     if value.startswith("pub"):
         return "PUBBLICO"
@@ -69,6 +98,19 @@ def map_company_nature(value: str | None) -> str:
 
 
 def map_company_legal_form(value: str) -> str | None:
+    """
+    Map company legal form descriptions to standardized values.
+
+    Parameters
+    ----------
+    value : str
+        The company legal form description to map
+
+    Returns
+    -------
+    str or None
+        The standardized company legal form value, or None if no mapping exists
+    """
     value = value.lower().strip()
 
     legal_form_mapping = {
@@ -89,7 +131,19 @@ def map_company_legal_form(value: str) -> str | None:
 
 
 def normalize_municipality_name(name: str) -> str:
-    """Normalizza il nome del comune secondo le regole di mappatura."""
+    """
+    Normalize municipality name according to mapping rules.
+
+    Parameters
+    ----------
+    name : str
+        The municipality name to normalize
+
+    Returns
+    -------
+    str
+        The normalized municipality name
+    """
     if not name:
         return name
     name_lower = name.lower()
@@ -362,29 +416,29 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
     )
     df_result = df_with_municipality.select(
         [
-            # ID e nome
+            # ID and name
             pl.col("CLIENTID").str.strip_chars().alias("id"),
             pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
-            # Dati della struttura
+            # Structure data
             pl.col("ID_STRUTTURA_FK").str.strip_chars().alias("physical_structure_id"),
-            # Dati dell'indirizzo
+            # Address data
             pl.col("VIA_PIAZZA").str.strip_chars().alias("street_name"),
             pl.col("CIVICO").str.strip_chars().alias("street_number"),
             pl.col("CAP").alias("zip_code"),
-            # Flag indirizzo principale
+            # Main address flag
             pl.when(pl.col("FLAG_INDIRIZZO_PRINCIPALE") == "S")
             .then(True)
             .otherwise(False)
             .alias("is_main_address"),
-            # Tipo di punto fisico
+            # Physical point type
             pl.col("NOME").alias("physical_point_type"),
-            # Coordinate
+            # Coordinates
             pl.col("LATITUDINE").cast(pl.Float64).alias("lat"),
             pl.col("LONGITUDINE").cast(pl.Float64).alias("lon"),
-            # ID di riferimento
+            # Reference IDs
             pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
             pl.col("id").alias("municipality_id"),
-            # Date
+            # Dates
             pl.col("CREATION")
             .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
             .dt.replace_time_zone("Europe/Rome")
@@ -407,7 +461,7 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
         ]
     )
 
-    # Rimuovi i duplicati mantenendo il primo record per ogni ID
+    # Remove duplicates keeping the first record for each ID
     df_result = df_result.unique(subset=["id"], keep="first")
 
     ### LOAD ###
@@ -467,7 +521,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         ).alias("extra"),
     )
 
-    # Converti la colonna extra in JSON
+    # Convert extra column to JSON
     df_result = df_result.with_columns(
         pl.col("extra").map_elements(
             lambda x: "{}" if x["docway_file_id"] is None else json.dumps(x),
@@ -475,7 +529,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         )
     )
 
-    # Filtra il record specifico
+    # Filter specific record
     df_result = df_result.filter(pl.col("id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
 
     ### LOAD ###
