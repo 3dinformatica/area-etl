@@ -1,7 +1,4 @@
-from datetime import datetime
-
 import polars as pl
-import pytz
 
 from utils import ETLContext, extract_data, extract_data_from_csv, handle_timestamps, load_data
 
@@ -97,15 +94,9 @@ def migrate_ulss(ctx: ETLContext) -> None:
     df_ulss_territoriale = extract_data(ctx, "SELECT * FROM AUAC_USR.ULSS_TERRITORIALE")
 
     ### TRANSFORM ###
-    rome_tz = pytz.timezone("Europe/Rome")
-    now_rome = datetime.now(rome_tz)
     df_result = df_ulss_territoriale.select(
         pl.col("DESCRIZIONE").str.strip_chars().alias("name"),
         pl.col("CODICE").alias("code"),
-    ).with_columns(
-        disabled_at=pl.lit(None),
-        created_at=pl.lit(now_rome),
-        updated_at=pl.lit(now_rome),
     )
 
     ### LOAD ###
