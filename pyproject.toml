@@ -51,7 +51,7 @@ exclude = [
 
 [tool.ruff.lint]
 # Enable pycodestyle (E), Pyflakes (F), isort (I), and more
-select = ["E", "F", "I", "W", "N", "B", "C4", "ARG", "SIM", "ERA", "PL", "RUF"]
+select = ["E", "F", "I", "W", "N", "B", "C4", "ARG", "SIM", "ERA", "PL", "RUF", "D"]
 ignore = ["E203", "E501"]
 # Allow autofix for all enabled rules (when `--fix`) is provided
 fixable = ["ALL"]
@@ -70,7 +70,7 @@ force-single-line = false
 case-sensitive = true
 
 [tool.ruff.lint.pydocstyle]
-convention = "google"
+convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 "main.py" = ["PLR0915"]

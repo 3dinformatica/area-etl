@@ -10,8 +10,10 @@ def migrate_regions(ctx: ETLContext) -> None:
     """
     Migrate regions from seed CSV file to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_regions = extract_data_from_csv("seed/regions.csv")
@@ -33,8 +35,10 @@ def migrate_provinces(ctx: ETLContext) -> None:
     """
     Migrate provinces from seed CSV file to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_provinces = extract_data_from_csv("seed/provinces.csv")
@@ -56,8 +60,10 @@ def migrate_municipalities(ctx: ETLContext) -> None:
     """
     Migrate municipalities from seed CSV file to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     schema_overrides = {"istat_code": pl.String}
@@ -80,10 +86,12 @@ def migrate_municipalities(ctx: ETLContext) -> None:
 
 def migrate_toponyms(ctx: ETLContext) -> None:
     """
-    Migrate toponyms from Oracle to PostgreSQL.
+    Migrate toponyms from ORACLE table "AUAC_USR.TOPONIMO_TEMPL" to PostgreSQL table "toponyms".
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_toponimo_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL")
@@ -111,6 +119,14 @@ def migrate_toponyms(ctx: ETLContext) -> None:
 
 
 def migrate_ulss(ctx: ETLContext) -> None:
+    """
+    Migrate toponyms from ORACLE table "AUAC_USR.ULSS_TERRITORIALE" to PostgreSQL table "ulss".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
     df_ulss_territoriale = extract_data(ctx, "SELECT * FROM AUAC_USR.ULSS_TERRITORIALE")
 
@@ -131,6 +147,14 @@ def migrate_ulss(ctx: ETLContext) -> None:
 
 
 def migrate_districts(ctx: ETLContext) -> None:
+    """
+    Migrate toponyms from ORACLE table "AUAC_USR.DISTRETTO_TEMPL" to PostgreSQL table "districts".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     ### EXTRACT ###
     df_toponimo_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.DISTRETTO_TEMPL")
 
