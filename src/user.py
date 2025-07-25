@@ -7,9 +7,6 @@ from core import ETLContext, extract_data, load_data
 
 
 def map_user_role(value: str) -> str:
-    if not value:
-        return ""
-
     value = value.lower()
 
     if "region" in value:
@@ -65,6 +62,7 @@ def migrate_users(ctx: ETLContext) -> None:
             pl.col("RUOLO")
             .str.strip_chars()
             .map_elements(map_user_role, return_dtype=pl.String)
+            .fill_null("OPERATORE")
             .alias("role"),
             pl.col("NOME").str.strip_chars().alias("first_name"),
             pl.col("COGNOME").str.strip_chars().alias("last_name"),
@@ -79,7 +77,7 @@ def migrate_users(ctx: ETLContext) -> None:
             pl.col("CARTA_IDENT_NUM").str.strip_chars().alias("identity_doc_number"),
             pl.col("CARTA_IDENT_SCAD").alias("identity_doc_expiry_date"),
             pl.col("PROFESSIONE").str.strip_chars().alias("job"),
-            pl.col("ID_UO_FK").alias("operational_unit_id"),
+            # pl.col("ID_UO_FK").alias("operational_unit_id"), FIXME: Fix reference to table
             pl.col("DATA_DISABILITATO").alias("disabled_at"),
             pl.col("CREATION")
             .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
