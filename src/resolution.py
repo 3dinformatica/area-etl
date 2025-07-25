@@ -2,12 +2,11 @@ import logging
 import os
 import shutil
 import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
 
 import polars as pl
 
-from core import ETLContext, extract_data, load_data
+from core import ETLContext, extract_data, handle_timestamps, load_data
 from src.settings import settings
 
 
@@ -95,51 +94,25 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
     df_tipo_atto = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_ATTO")
 
     ### TRANSFORM ###
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_tipo_delibera = df_tipo_delibera.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().str.to_uppercase().alias("name"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_tipo_atto = df_tipo_atto.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().str.to_uppercase().alias("name"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
     df_result = pl.concat([df_tipo_delibera, df_tipo_atto], how="vertical")
     df_result = df_result.unique("name")
@@ -169,6 +142,9 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_resolution_types["id"] = df_resolution_types["id"].astype("string")
     df_resolution_types = pl.from_pandas(df_resolution_types)
 
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_delibera_templ = df_delibera_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().alias("name"),
@@ -194,26 +170,13 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         pl.col("ID_TIPO_FK").str.strip_chars().alias("resolution_type_id"),
         pl.lit(None).alias("company_id"),
         pl.lit(None).alias("procedure_type"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_atto_model = df_atto_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("ID_TIPO_FK").str.strip_chars(),
@@ -230,25 +193,9 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone(None)
         .alias("valid_to"),
         pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by download_attachments
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
     df_tipo_proc_templ = df_tipo_proc_templ.select(
         pl.col("CLIENTID"),

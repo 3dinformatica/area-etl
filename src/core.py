@@ -2,7 +2,7 @@ import inspect
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -276,3 +276,151 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
             logging.error(f"[{caller_module}] Error exporting table {table}: {e!s}")
 
     logging.info(f"[{caller_module}] Export completed. CSV files saved in {export_dir} directory")
+
+
+def handle_created_at(creation_col: str = "CREATION") -> pl.Expr:
+    """
+    Handle the created_at timestamp field transformation.
+
+    This function applies the standard transformation for created_at fields:
+    - Uses the specified creation column from the source
+    - Fills null values with current UTC time
+    - Replaces timezone from "Europe/Rome" to None
+
+    Parameters
+    ----------
+    creation_col : str, optional
+        The name of the creation timestamp column, by default "CREATION"
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return (
+        pl.col(creation_col)
+        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone(None)
+        .alias("created_at")
+    )
+
+
+def handle_updated_at(last_mod_col: str = "LAST_MOD", creation_col: str = "CREATION") -> pl.Expr:
+    """
+    Handle the updated_at timestamp field transformation.
+
+    This function applies the standard transformation for updated_at fields:
+    - Uses the specified last modification column from the source
+    - Fills null values with the creation column
+    - Replaces timezone from "Europe/Rome" to None
+
+    Parameters
+    ----------
+    last_mod_col : str, optional
+        The name of the last modification timestamp column, by default "LAST_MOD"
+    creation_col : str, optional
+        The name of the creation timestamp column, by default "CREATION"
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return (
+        pl.col(last_mod_col)
+        .fill_null(pl.col(creation_col))
+        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone(None)
+        .alias("updated_at")
+    )
+
+
+def handle_disabled_at(
+    disabled_col: str = "DISABLED",
+    disabled_value: str = "S",
+    last_mod_col: str = "LAST_MOD",
+    creation_col: str = "CREATION",
+    direct_disabled_col: str | None = None,
+) -> pl.Expr:
+    """
+    Handle the disabled_at timestamp field transformation.
+
+    This function applies the standard transformation for disabled_at fields:
+    - If direct_disabled_col is provided, uses that column directly
+    - Otherwise, conditionally sets when disabled_col equals disabled_value
+    - When condition is met, uses last_mod_col (with fallback to creation_col)
+    - Replaces timezone from "Europe/Rome" to None
+    - Otherwise sets to None
+
+    Parameters
+    ----------
+    disabled_col : str, optional
+        The name of the disabled flag column, by default "DISABLED"
+    disabled_value : str, optional
+        The value indicating that the record is disabled, by default "S"
+    last_mod_col : str, optional
+        The name of the last modification timestamp column, by default "LAST_MOD"
+    creation_col : str, optional
+        The name of the creation timestamp column, by default "CREATION"
+    direct_disabled_col : str | None, optional
+        The name of a column that directly contains the disabled timestamp, by default None
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    if direct_disabled_col is not None:
+        return pl.col(direct_disabled_col).alias("disabled_at")
+
+    return (
+        pl.when(pl.col(disabled_col) == disabled_value)
+        .then(
+            pl.col(last_mod_col)
+            .fill_null(pl.col(creation_col))
+            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone(None)
+        )
+        .otherwise(None)
+        .alias("disabled_at")
+    )
+
+
+def handle_timestamps(
+    creation_col: str = "CREATION",
+    last_mod_col: str = "LAST_MOD",
+    disabled_col: str = "DISABLED",
+    disabled_value: str = "S",
+    direct_disabled_col: str | None = None,
+) -> dict[str, pl.Expr]:
+    """
+    Handle all timestamp field transformations at once.
+
+    This function applies the standard transformations for created_at, updated_at, and disabled_at fields.
+
+    Parameters
+    ----------
+    creation_col : str, optional
+        The name of the creation timestamp column, by default "CREATION"
+    last_mod_col : str, optional
+        The name of the last modification timestamp column, by default "LAST_MOD"
+    disabled_col : str, optional
+        The name of the disabled flag column, by default "DISABLED"
+    disabled_value : str, optional
+        The value indicating that the record is disabled, by default "S"
+    direct_disabled_col : str | None, optional
+        The name of a column that directly contains the disabled timestamp, by default None
+
+    Returns
+    -------
+    dict[str, pl.Expr]
+        A dictionary of polars expressions that can be used in a select statement
+    """
+    return {
+        "created_at": handle_created_at(creation_col),
+        "updated_at": handle_updated_at(last_mod_col, creation_col),
+        "disabled_at": handle_disabled_at(
+            disabled_col, disabled_value, last_mod_col, creation_col, direct_disabled_col
+        ),
+    }

@@ -1,9 +1,8 @@
 import logging
-from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext, extract_data, load_data
+from core import ETLContext, extract_data, handle_timestamps, load_data
 
 
 def map_user_role(value: str) -> str:
@@ -105,17 +104,8 @@ def migrate_users(ctx: ETLContext) -> None:
             pl.col("CARTA_IDENT_SCAD").alias("identity_doc_expiry_date"),
             pl.col("PROFESSIONE").str.strip_chars().alias("job"),
             # pl.col("ID_UO_FK").alias("operational_unit_id"), FIXME: Fix reference to table
-            pl.col("DATA_DISABILITATO").alias("disabled_at"),
-            pl.col("CREATION")
-            .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-            .alias("created_at"),
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-            .alias("updated_at"),
+            # Get timestamp expressions with direct_disabled_col
+            **handle_timestamps(df_utente_model, direct_disabled_col="DATA_DISABILITATO"),
         )
         .filter(pl.col("username").is_not_null())
     )
@@ -162,46 +152,28 @@ def migrate_user_companies(ctx: ETLContext) -> None:
     df_operatore_model = extract_data(ctx, "SELECT * FROM AUAC_USR.OPERATORE_MODEL")
 
     ### TRANSFORM ###
+    # Get timestamp expressions with direct_disabled_col
+    timestamp_exprs = handle_timestamps(direct_disabled_col="DATA_DISABILITATO")
+
     df_user = df_utente_model.select(
         pl.col("CLIENTID").alias("id"),
         pl.col("CLIENTID").alias("user_id"),
         pl.lit("*").alias("company_id"),
-        pl.col("DATA_DISABILITATO").cast(pl.Datetime).alias("disabled_at"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
+        timestamp_exprs["disabled_at"],
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
     )
+
+    # Get timestamp expressions for operator model
+    operator_timestamp_exprs = handle_timestamps()
 
     df_operator = df_operatore_model.select(
         pl.col("CLIENTID").alias("id"),
         pl.col("ID_UTENTE_FK").alias("user_id"),
         pl.col("ID_TITOLARE_FK").alias("company_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        operator_timestamp_exprs["created_at"],
+        operator_timestamp_exprs["updated_at"],
+        operator_timestamp_exprs["disabled_at"],
     )
 
     # Combine the dataframes

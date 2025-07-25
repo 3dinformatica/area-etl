@@ -1,9 +1,8 @@
 import logging
-from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext, extract_data, load_data
+from core import ETLContext, extract_data, handle_timestamps, load_data
 from src.settings import settings
 
 
@@ -26,30 +25,17 @@ def migrate_production_factor_types(ctx: ETLContext) -> None:
                 pl.col(col).str.replace_all("\x00", "").alias(col)
             )
 
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps(df_tipo_fattore_prod_templ)
+
     df_result = df_tipo_fattore_prod_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("DESCR").str.strip_chars().alias("code"),
         pl.col("TIPOLOGIA_FATT_PROD").str.strip_chars().alias("category"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -75,6 +61,9 @@ def migrate_production_factors(ctx: ETLContext) -> None:
                 pl.col(col).str.replace_all("\x00", "").alias(col)
             )
 
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps(df_fatt_prod_udo_model)
+
     df_result = df_fatt_prod_udo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("ID_TIPO_FK").str.strip_chars().alias("production_factor_type_id"),
@@ -92,25 +81,9 @@ def migrate_production_factors(ctx: ETLContext) -> None:
         .alias("num_hospital_beds"),
         pl.col("VALORE2").str.strip_chars().replace(["NUL"], None).alias("room_name"),
         pl.col("DESCR").str.strip_chars().replace(["NUL"], None).alias("room_code"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -135,28 +108,15 @@ def migrate_udo_type_classifications(ctx: ETLContext) -> None:
     )
 
     ### TRANSFORM ###
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps(df_classificazione_udo_templ)
+
     df_result = df_classificazione_udo_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -415,25 +375,8 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("AGGIUNGI_AMBITO").alias("has_scopes"),
         pl.col("NATURE").alias("company_natures"),
         pl.col("FLUSSI").alias("ministerial_flows"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
+        # Get timestamp expressions
+        **handle_timestamps(),
     )
 
     ### LOAD ###
@@ -880,25 +823,8 @@ def migrate_udos(ctx: ETLContext) -> None:
         .alias("is_module"),
         pl.col("PROVENIENZA_UO").alias("PROVENIENZA_UO"),
         pl.col("ID_UO").alias("ID_UO"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        # Get timestamp expressions
+        **handle_timestamps(),
     )
 
     # Check if building_ids exist in the buildings table
@@ -1009,25 +935,8 @@ def migrate_operational_units(ctx: ETLContext) -> None:
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("DESCR").str.strip_chars().alias("description"),
         pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        # Get timestamp expressions
+        **handle_timestamps(),
     )
 
     ### LOAD ###

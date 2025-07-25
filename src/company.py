@@ -1,9 +1,8 @@
 import json
-from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext, extract_data, load_data
+from core import ETLContext, extract_data, handle_timestamps, load_data
 
 MUNICIPALITY_MAPPING = {
     "masera' di padova": "maserà di padova",
@@ -163,6 +162,9 @@ def migrate_company_types(ctx: ETLContext) -> None:
     df_company_types = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL")
 
     ### TRANSFORM ###
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_company_types.select(
         pl.col("CLIENTID").str.to_lowercase().str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().alias("name"),
@@ -174,25 +176,9 @@ def migrate_company_types(ctx: ETLContext) -> None:
         .then(True)
         .otherwise(False)
         .alias("is_active_poa"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -282,25 +268,8 @@ def migrate_companies(ctx: ETLContext) -> None:
         pl.col("municipality_id"),
         pl.col("ID_TIPO_FK").str.strip_chars().alias("company_type_id"),
         pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        # Get timestamp expressions
+        **handle_timestamps(df_titolare_model),
     )
 
     ### LOAD ###
@@ -323,6 +292,9 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
     df_struttura_model = extract_data(ctx, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
 
     ### TRANSFORM ###
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_struttura_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
@@ -330,25 +302,9 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
         pl.col("CODICE_PF_SECONDARIO").str.strip_chars().alias("secondary_code"),
         pl.col("ID_DISTRETTO_FK").str.strip_chars().alias("district_id"),
         pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
         pl.struct(
             [
                 pl.col("ID_FASCICOLO_DOCWAY").alias("docway_file_id"),
@@ -442,26 +398,10 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
             # Reference IDs
             pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
             pl.col("id").alias("municipality_id"),
-            # Dates
-            pl.col("CREATION")
-            .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-            .alias("created_at"),
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-            .alias("updated_at"),
-            pl.when(pl.col("DISABLED") == "S")
-            .then(
-                pl.col("LAST_MOD")
-                .fill_null(pl.col("CREATION"))
-                .dt.replace_time_zone("Europe/Rome")
-                .dt.replace_time_zone(None)
-            )
-            .otherwise(None)
-            .alias("disabled_at"),
+            # Get timestamp expressions for the original DataFrame
+            handle_timestamps()["created_at"],
+            handle_timestamps()["updated_at"],
+            handle_timestamps()["disabled_at"],
         ]
     )
 
@@ -485,6 +425,9 @@ def migrate_buildings(ctx: ETLContext) -> None:
     df_edificio_str_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL")
 
     ### TRANSFORM ###
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_edificio_str_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
@@ -499,25 +442,9 @@ def migrate_buildings(ctx: ETLContext) -> None:
         .then(True)
         .otherwise(False)
         .alias("is_own_property"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
         pl.struct(
             [
                 pl.col("ID_FASCICOLO_DOCWAY").alias("docway_file_id"),

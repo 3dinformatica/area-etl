@@ -3,7 +3,7 @@ from datetime import datetime
 import polars as pl
 import pytz
 
-from core import ETLContext, extract_data, extract_data_from_csv, load_data
+from core import ETLContext, extract_data, extract_data_from_csv, handle_timestamps, load_data
 
 
 def migrate_regions(ctx: ETLContext) -> None:
@@ -18,17 +18,8 @@ def migrate_regions(ctx: ETLContext) -> None:
     ### EXTRACT ###
     df_regions = extract_data_from_csv("seed/regions.csv")
 
-    ### TRANSFORM ###
-    rome_tz = pytz.timezone("Europe/Rome")
-    now_rome = datetime.now(rome_tz)
-    df_result = df_regions.with_columns(
-        disabled_at=pl.lit(None),
-        created_at=pl.lit(now_rome).dt.replace_time_zone("Europe/Rome"),
-        updated_at=pl.lit(now_rome).dt.replace_time_zone("Europe/Rome"),
-    )
-
     ### LOAD ###
-    load_data(ctx, df_result, "regions")
+    load_data(ctx, df_regions, "regions")
 
 
 def migrate_provinces(ctx: ETLContext) -> None:
@@ -43,17 +34,8 @@ def migrate_provinces(ctx: ETLContext) -> None:
     ### EXTRACT ###
     df_provinces = extract_data_from_csv("seed/provinces.csv")
 
-    ### TRANSFORM ###
-    rome_tz = pytz.timezone("Europe/Rome")
-    now_rome = datetime.now(rome_tz)
-    df_result = df_provinces.with_columns(
-        disabled_at=pl.lit(None),
-        created_at=pl.lit(now_rome).dt.replace_time_zone("Europe/Rome"),
-        updated_at=pl.lit(now_rome).dt.replace_time_zone("Europe/Rome"),
-    )
-
     ### LOAD ###
-    load_data(ctx, df_result, "provinces")
+    load_data(ctx, df_provinces, "provinces")
 
 
 def migrate_municipalities(ctx: ETLContext) -> None:
@@ -71,17 +53,8 @@ def migrate_municipalities(ctx: ETLContext) -> None:
         "seed/municipalities.csv", schema_overrides=schema_overrides
     )
 
-    ### TRANSFORM ###
-    rome_tz = pytz.timezone("Europe/Rome")
-    now_rome = datetime.now(rome_tz)
-    df_result = df_municipalities.with_columns(
-        disabled_at=pl.lit(None),
-        created_at=pl.lit(now_rome),
-        updated_at=pl.lit(now_rome),
-    )
-
     ### LOAD ###
-    load_data(ctx, df_result, "municipalities")
+    load_data(ctx, df_municipalities, "municipalities")
 
 
 def migrate_toponyms(ctx: ETLContext) -> None:
@@ -97,21 +70,14 @@ def migrate_toponyms(ctx: ETLContext) -> None:
     df_toponimo_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL")
 
     ### TRANSFORM ###
-    rome_tz = pytz.timezone("Europe/Rome")
-    now_rome = datetime.now(rome_tz)
-
-    # Convert now_rome to timezone-naive for consistent handling
-    now_rome_naive = now_rome.replace(tzinfo=None)
+    timestamp_exprs = handle_timestamps()
 
     df_result = df_toponimo_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
-        pl.col("CREATION").fill_null(now_rome_naive).alias("created_at"),
-        pl.col("LAST_MOD").fill_null(pl.col("CREATION")).alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(pl.col("LAST_MOD").fill_null(pl.col("CREATION")))
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -159,11 +125,7 @@ def migrate_districts(ctx: ETLContext) -> None:
     df_toponimo_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.DISTRETTO_TEMPL")
 
     ### TRANSFORM ###
-    rome_tz = pytz.timezone("Europe/Rome")
-    now_rome = datetime.now(rome_tz)
-
-    # Convert now_rome to timezone-naive for consistent handling
-    now_rome_naive = now_rome.replace(tzinfo=None)
+    timestamp_exprs = handle_timestamps()
 
     df_result = df_toponimo_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
@@ -173,12 +135,9 @@ def migrate_districts(ctx: ETLContext) -> None:
         .str.replace("-", " - ")
         .alias("name"),
         pl.col("DISTRETTO").alias("code"),
-        pl.col("CREATION").fill_null(now_rome_naive).alias("created_at"),
-        pl.col("LAST_MOD").fill_null(pl.col("CREATION")).alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(pl.col("LAST_MOD").fill_null(pl.col("CREATION")))
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###

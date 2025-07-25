@@ -1,8 +1,6 @@
-from datetime import datetime, timezone
-
 import polars as pl
 
-from core import ETLContext, extract_data, load_data
+from core import ETLContext, extract_data, handle_timestamps, load_data
 
 
 def map_macroarea(value: str | None) -> str | None:
@@ -97,29 +95,16 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
         right_on="ID_MACROAREA_FK",
         how="left",
     )
+    # Get timestamp expressions
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_result.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("macroarea").str.strip_chars().map_elements(map_macroarea, return_dtype=pl.String),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -145,6 +130,9 @@ def migrate_specialties(ctx: ETLContext) -> None:
     )
 
     ### TRANSFORM ###
+    # Get timestamp expressions for disciplines
+    timestamp_exprs = handle_timestamps(df_disciplina_templ)
+
     df_disciplines = df_disciplina_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
@@ -165,29 +153,16 @@ def migrate_specialties(ctx: ETLContext) -> None:
         .str.strip_chars()
         .alias("grouping_specialty_id"),
         pl.col("ID_DISCIPLINA").cast(pl.String).str.strip_chars().alias("old_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
         pl.lit(None).alias("parent_specialty_id"),
     ).with_columns(record_type=pl.lit("DISCIPLINE"))
 
     # Process branches
+    # Get timestamp expressions for branches with custom disabled column and value
+    timestamp_exprs = handle_timestamps(disabled_col="ATTIVA", disabled_value="N")
+
     df_branches = df_branca_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().fill_null("-").alias("name"),
@@ -201,25 +176,9 @@ def migrate_specialties(ctx: ETLContext) -> None:
         pl.lit(True).alias("is_used_in_poa"),
         pl.lit(None).alias("grouping_specialty_id"),
         pl.col("ID_BRANCA").cast(pl.String).str.strip_chars().alias("old_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("ATTIVA") == "N")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
         pl.lit(None).alias("parent_specialty_id"),
     ).with_columns(record_type=pl.lit("BRANCH"))
 
@@ -232,6 +191,9 @@ def migrate_specialties(ctx: ETLContext) -> None:
         ).row(0)[0]
 
     # Process additional branches
+    # Get timestamp expressions for additional branches
+    timestamp_exprs = handle_timestamps()
+
     df_additional_branches = df_artic_branca_altro_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("name"),
@@ -242,25 +204,9 @@ def migrate_specialties(ctx: ETLContext) -> None:
         pl.lit(True).alias("is_used_in_poa"),
         pl.lit(None).alias("grouping_specialty_id"),
         pl.lit(None).alias("old_id"),
-        pl.col("CREATION")
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("created_at"),
-        pl.col("LAST_MOD")
-        .fill_null(pl.col("CREATION"))
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("updated_at"),
-        pl.when(pl.col("DISABLED") == "S")
-        .then(
-            pl.col("LAST_MOD")
-            .fill_null(pl.col("CREATION"))
-            .dt.replace_time_zone("Europe/Rome")
-            .dt.replace_time_zone(None)
-        )
-        .otherwise(None)
-        .alias("disabled_at"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
         pl.lit(parent_branch_id).alias("parent_specialty_id"),
     ).with_columns(record_type=pl.lit("BRANCH"))
 
