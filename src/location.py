@@ -8,7 +8,7 @@ from core import ETLContext, extract_data, extract_data_from_csv, load_data
 
 def migrate_regions(ctx: ETLContext) -> None:
     """
-    Migrate regions from seed CSV file to PostgreSQL.
+    Migrate regions from a local seed CSV file to PostgreSQL table "regions".
 
     Parameters
     ----------
@@ -33,7 +33,7 @@ def migrate_regions(ctx: ETLContext) -> None:
 
 def migrate_provinces(ctx: ETLContext) -> None:
     """
-    Migrate provinces from seed CSV file to PostgreSQL.
+    Migrate regions from a local seed CSV file to PostgreSQL table "provinces".
 
     Parameters
     ----------
@@ -58,7 +58,7 @@ def migrate_provinces(ctx: ETLContext) -> None:
 
 def migrate_municipalities(ctx: ETLContext) -> None:
     """
-    Migrate municipalities from seed CSV file to PostgreSQL.
+    Migrate regions from a local seed CSV file to PostgreSQL table "municipalities".
 
     Parameters
     ----------
