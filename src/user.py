@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from core import ETLContext
+from core import ETLContext, extract_data, load_data
 
 
 def map_user_role(value: str) -> str:
@@ -22,21 +22,9 @@ def map_user_role(value: str) -> str:
 
 def migrate_users(ctx: ETLContext) -> None:
     ### EXTRACT ###
-    df_utente_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.UTENTE_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    df_anagrafica_utente_model = pl.read_database(
-        "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL",
-        connection=ctx.oracle_engine.connect(),
-        infer_schema_length=None,
-    )
-    df_municipalities = pl.read_database(
-        "SELECT * FROM municipalities",
-        connection=ctx.pg_engine.connect(),
-        infer_schema_length=None,
-    )
+    df_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
+    df_anagrafica_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL")
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="postgresql")
 
     ### TRANSFORM ###
     df_anagrafica_utente_model = df_anagrafica_utente_model.select(
@@ -77,7 +65,7 @@ def migrate_users(ctx: ETLContext) -> None:
             pl.col("RUOLO")
             .str.strip_chars()
             .map_elements(map_user_role, return_dtype=pl.String)
-            .alias("user_role"),
+            .alias("role"),
             pl.col("NOME").str.strip_chars().alias("first_name"),
             pl.col("COGNOME").str.strip_chars().alias("last_name"),
             pl.col("CFISC").str.strip_chars().alias("tax_code"),
@@ -91,6 +79,7 @@ def migrate_users(ctx: ETLContext) -> None:
             pl.col("CARTA_IDENT_NUM").str.strip_chars().alias("identity_doc_number"),
             pl.col("CARTA_IDENT_SCAD").alias("identity_doc_expiry_date"),
             pl.col("PROFESSIONE").str.strip_chars().alias("job"),
+            pl.col("ID_UO_FK").alias("operational_unit_id"),
             pl.col("DATA_DISABILITATO").alias("disabled_at"),
             pl.col("CREATION")
             .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
@@ -107,13 +96,7 @@ def migrate_users(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    df_result.write_database(
-        table_name="users",
-        connection=ctx.pg_engine,
-        if_table_exists="append",
-    )
-
-    logging.info("Migrated users")
+    load_data(ctx, df_result, "users")
 
 
 def migrate_permissions(ctx: ETLContext) -> None:
