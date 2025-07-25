@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 import polars as pl
@@ -11,14 +12,83 @@ from sqlalchemy import Engine, create_engine, text
 
 from src.settings import settings
 
+# List of tables used in multiple functions
+TABLES = [
+    "buildings",
+    "companies",
+    "company_types",
+    "districts",
+    "grouping_specialties",
+    "municipalities",
+    "operational_offices",
+    "operational_units",
+    "permissions",
+    "physical_structures",
+    "production_factor_types",
+    "production_factors",
+    "provinces",
+    "regions",
+    "resolution_types",
+    "resolutions",
+    "specialties",
+    "toponyms",
+    "udo_production_factors",
+    "udo_specialties",
+    "udo_type_classifications",
+    "udo_type_production_factor_types",
+    "udo_types",
+    "udos",
+    "udos_history",
+    "ulss",
+    "user_companies",
+    "users",
+]
+
 
 @dataclass
 class ETLContext:
+    """
+    Context object for ETL operations containing database connections.
+
+    Attributes
+    ----------
+    oracle_engine : Engine
+        SQLAlchemy engine for Oracle database connection
+    pg_engine : Engine
+        SQLAlchemy engine for PostgreSQL database connection
+    """
+
     oracle_engine: Engine
     pg_engine: Engine
 
 
+def get_caller_module() -> str:
+    """
+    Get the name of the calling module.
+
+    Returns
+    -------
+    str
+        The name of the calling module
+    """
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None:
+        return "unknown"
+
+    module = inspect.getmodule(frame.f_back)
+    if module is None:
+        return "unknown"
+
+    return module.__name__.split(".")[-1]
+
+
 def setup_logging() -> None:
+    """
+    Set up the logging configuration for the application.
+
+    Creates a logs directory if it doesn't exist and configures logging
+    to output to both console and a timestamped log file.
+    """
     log_dir = Path("logs")
     log_dir.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
@@ -35,6 +105,17 @@ def setup_logging() -> None:
 
 
 def setup_connections() -> ETLContext:
+    """
+    Initialize database connections for ETL operations.
+
+    Sets up an Oracle client and creates database engine connections
+    for both Oracle and PostgreSQL databases.
+
+    Returns
+    -------
+    ETLContext
+        Context object containing database connections
+    """
     init_oracle_client(lib_dir=settings.ORACLE_CLIENT_LIB_DIR)
     oracle_engine = create_engine(settings.ORACLE_URI)
     pg_engine = create_engine(settings.PG_URI)
@@ -43,41 +124,59 @@ def setup_connections() -> ETLContext:
 
 def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.DataFrame:
     """
-    Generic function to extract data from a database and log the extraction.
+    Extract data from a database and log the extraction.
 
-    Args:
-        ctx: The ETL context containing database connections
-        query: The SQL query to execute
-        source: The source database ('oracle' or 'pg')
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    query : str
+        The SQL query to execute
+    source : str, optional
+        The source database ('oracle' or 'pg'), by default "oracle"
 
-    Returns:
+    Returns
+    -------
+    pl.DataFrame
         A polars DataFrame containing the extracted data
     """
-
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
+    caller_module = get_caller_module()
 
     engine = ctx.oracle_engine if source == "oracle" else ctx.pg_engine
     df = pl.read_database(query, connection=engine.connect(), infer_schema_length=None)
-    table_name = query.split("FROM")[1].strip().split()[0] if "FROM" in query.upper() else "unknown"
+
+    # Extract table name from query for logging
+    table_name = "unknown"
+    if "FROM" in query.upper():
+        parts = query.upper().split("FROM")
+        if len(parts) > 1:
+            table_parts = parts[1].strip().split()
+            if table_parts:
+                table_name = table_parts[0]
+
     logging.info(
         f"[{caller_module}] Extracted {df.height} rows from {source.upper()} table {table_name}"
     )
     return df
 
 
-def extract_data_from_csv(file_path: str, schema_overrides: dict | None = None) -> pl.DataFrame:
+def extract_data_from_csv(file_path: str, schema_overrides: Optional[dict] = None) -> pl.DataFrame:
     """
-    Generic function to extract data from a CSV file and log the extraction.
+    Extract data from a CSV file and log the extraction.
 
-    Args:
-        file_path: The path to the CSV file
-        schema_overrides: Optional schema overrides for the CSV file
+    Parameters
+    ----------
+    file_path : str
+        The path to the CSV file
+    schema_overrides : dict, optional
+        Optional schema overrides for the CSV file, by default None
 
-    Returns:
+    Returns
+    -------
+    pl.DataFrame
         A polars DataFrame containing the extracted data
     """
-
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
+    caller_module = get_caller_module()
 
     df = pl.read_csv(file_path, schema_overrides=schema_overrides)
     logging.info(f"[{caller_module}] Extracted {df.height} rows from CSV file {file_path}")
@@ -86,15 +185,18 @@ def extract_data_from_csv(file_path: str, schema_overrides: dict | None = None) 
 
 def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     """
-    Generic function to load data to a PostgreSQL database and log the load.
+    Load data to a PostgreSQL database and log the operation.
 
-    Args:
-        ctx: The ETL context containing database connections
-        df: The polars DataFrame to load
-        table_name: The name of the destination table
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    df : pl.DataFrame
+        The polars DataFrame to load
+    table_name : str
+        The name of the destination table
     """
-
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
+    caller_module = get_caller_module()
 
     # Apply table prefix if set
     prefixed_table_name = f"{settings.PG_TABLE_PREFIX}{table_name}"
@@ -108,42 +210,22 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
 
 
 def truncate_postgresql_tables(ctx: ETLContext) -> None:
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
+    """
+    Truncate all destination tables in PostgreSQL.
+
+    Clears all data from the tables listed in the TABLES constant,
+    resetting identity sequences and cascading the truncation.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    caller_module = get_caller_module()
 
     with ctx.pg_engine.connect() as conn:
         logging.info(f"[{caller_module}] Truncating all destination tables in PostgreSQL...")
-        tables = [
-            "regions",
-            "provinces",
-            "municipalities",
-            "toponyms",
-            "districts",
-            "company_types",
-            "companies",
-            "physical_structures",
-            "operational_offices",
-            "buildings",
-            "grouping_specialties",
-            "specialties",
-            "users",
-            "permissions",
-            "user_companies",
-            "production_factor_types",
-            "production_factors",
-            "udo_type_classifications",
-            "udo_types",
-            "operational_units",
-            "udos",
-            "udo_production_factors",
-            "udo_type_production_factor_types",
-            "udo_specialties",
-            # "udo_resolutions",
-            "udos_history",
-            "ulss",
-            "resolutions",
-            "resolution_types",
-        ]
-        for table in tables:
+        for table in TABLES:
             prefixed_table = f"{settings.PG_TABLE_PREFIX}{table}"
             conn.execute(text(f"TRUNCATE TABLE {prefixed_table} RESTART IDENTITY CASCADE"))
         conn.commit()
@@ -153,54 +235,23 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
     """
     Export all PostgreSQL tables to CSV files in the specified directory.
 
-    Args:
-        ctx: The ETL context containing database connections
-        export_dir: The directory where CSV files will be saved (default: "export")
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    export_dir : str, optional
+        The directory where CSV files will be saved, by default "export"
     """
-
-    caller_module = inspect.getmodule(inspect.currentframe().f_back).__name__.split(".")[-1]
+    caller_module = get_caller_module()
 
     # Create export directory if it doesn't exist
     export_path = Path(export_dir)
     export_path.mkdir(parents=True, exist_ok=True)
 
-    # Get list of tables
-    tables = [
-        "regions",
-        "provinces",
-        "municipalities",
-        "toponyms",
-        "districts",
-        "company_types",
-        "companies",
-        "physical_structures",
-        "operational_offices",
-        "buildings",
-        "grouping_specialties",
-        "specialties",
-        "users",
-        "permissions",
-        "user_companies",
-        "production_factor_types",
-        "production_factors",
-        "udo_type_classifications",
-        "udo_types",
-        "operational_units",
-        "udos",
-        "udo_production_factors",
-        "udo_type_production_factor_types",
-        "udo_specialties",
-        # "udo_resolutions",
-        "udos_history",
-        "ulss",
-        "resolutions",
-        "resolution_types",
-    ]
-
     logging.info(f"[{caller_module}] Exporting all tables to CSV in directory: {export_dir}")
 
     # Export each table to CSV
-    for table in tables:
+    for table in TABLES:
         try:
             # Use SQLAlchemy directly to query the data
             with ctx.pg_engine.connect() as connection:
