@@ -3,7 +3,7 @@ services:
     container_name: "area-etl-postgres"
     image: "postgres:17"
     ports:
-      - "5433:5432"
+      - "5432:5432"
     environment:
       - POSTGRES_DB=area_db
       - POSTGRES_USER=admin
