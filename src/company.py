@@ -98,10 +98,12 @@ def normalize_municipality_name(name: str) -> str:
 
 def migrate_company_types(ctx: ETLContext) -> None:
     """
-    Migrate company types from Oracle to PostgreSQL.
+    Migrate company types from ORACLE table "AUAC_USR.TIPO_TITOLARE_TEMPL" to PostgreSQL table "company_types".
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_company_types = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL")
@@ -145,10 +147,12 @@ def migrate_company_types(ctx: ETLContext) -> None:
 
 def migrate_companies(ctx: ETLContext) -> None:
     """
-    Migrate companies from Oracle to PostgreSQL.
+    Migrate companies from ORACLE table "AUAC_USR.TITOLARE_MODEL" to PostgreSQL table "companies".
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_titolare_model = extract_data(ctx, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
@@ -251,10 +255,13 @@ def migrate_companies(ctx: ETLContext) -> None:
 
 def migrate_physical_structures(ctx: ETLContext) -> None:
     """
-    Migrate physical structures from Oracle to PostgreSQL.
+    Migrate companies physical structures from ORACLE table "AUAC_USR.STRUTTURA_MODEL" to PostgreSQL table
+    "physical_structures".
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_struttura_model = extract_data(ctx, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
@@ -309,10 +316,13 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
 
 def migrate_operational_offices(ctx: ETLContext) -> None:
     """
-    Migrate operational offices from Oracle to PostgreSQL.
+    Migrate companies' operational offices from ORACLE table "AUAC_USR.SEDE_OPER_MODEL" to PostgreSQL table
+    "operational_offices".
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_sede_oper_model = extract_data(ctx, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
@@ -406,10 +416,12 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
 
 def migrate_buildings(ctx: ETLContext) -> None:
     """
-    Migrate buildings from Oracle to PostgreSQL.
+    Migrate companies' buildings from ORACLE table "AUAC_USR.EDIFICIO_STR_TEMPL" to PostgreSQL table "buildings".
 
-    Args:
-        ctx: The ETL context containing database connections
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_edificio_str_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL")
