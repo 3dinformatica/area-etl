@@ -114,8 +114,6 @@ def main() -> None:
         migrate_operational_offices(ctx)
         migrate_buildings(ctx)
         migrate_operational_units(ctx)
-        migrate_users(ctx)
-        migrate_user_companies(ctx)
         migrate_grouping_specialties(ctx)
         migrate_specialties(ctx)
         migrate_production_factor_types(ctx)
@@ -131,6 +129,8 @@ def main() -> None:
         migrate_udos_history(ctx)
         migrate_resolution_types(ctx)
         migrate_resolutions(ctx)
+        migrate_users(ctx)
+        migrate_user_companies(ctx)
 
         elapsed_time = format_elapsed_time(start_time)
         logging.info(f"Total migration time: {elapsed_time}")
