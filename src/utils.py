@@ -1,4 +1,3 @@
-import inspect
 import logging
 import os
 from dataclasses import dataclass
@@ -62,26 +61,6 @@ class ETLContext:
     pg_engine: Engine
 
 
-def get_caller_module() -> str:
-    """
-    Get the name of the calling module.
-
-    Returns
-    -------
-    str
-        The name of the calling module
-    """
-    frame = inspect.currentframe()
-    if frame is None or frame.f_back is None:
-        return "unknown"
-
-    module = inspect.getmodule(frame.f_back)
-    if module is None:
-        return "unknown"
-
-    return module.__name__.split(".")[-1]
-
-
 def setup_logging() -> None:
     """
     Set up the logging configuration for the application.
@@ -93,7 +72,7 @@ def setup_logging() -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(module)s | %(message)s",
+        format="%(asctime)s | %(levelname)s | %(message)s",
         handlers=[
             logging.StreamHandler(),
             logging.FileHandler(
@@ -140,12 +119,10 @@ def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.Data
     pl.DataFrame
         A polars DataFrame containing the extracted data
     """
-    caller_module = get_caller_module()
-
     engine = ctx.oracle_engine if source == "oracle" else ctx.pg_engine
     df = pl.read_database(query, connection=engine.connect(), infer_schema_length=None)
 
-    # Extract table name from query for logging
+    # Extract the table name from the input query for logging
     table_name = "unknown"
     if "FROM" in query.upper():
         parts = query.upper().split("FROM")
@@ -154,9 +131,7 @@ def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.Data
             if table_parts:
                 table_name = table_parts[0]
 
-    logging.info(
-        f"[{caller_module}] Extracted {df.height} rows from {source.upper()} table {table_name}"
-    )
+    logging.info(f"Extracted {df.height} rows from {source.upper()} table {table_name}")
     return df
 
 
@@ -178,11 +153,9 @@ def extract_data_from_csv(
     pl.DataFrame
         A polars DataFrame containing the extracted data
     """
-    caller_module = get_caller_module()
-
     df = pl.read_csv(file_path, schema_overrides=schema_overrides)
     absolute_path = Path(file_path).absolute()
-    logging.info(f"[{caller_module}] Extracted {df.height} rows from CSV file {absolute_path}")
+    logging.info(f"Extracted {df.height} rows from CSV file {absolute_path}")
     return df
 
 
@@ -199,17 +172,13 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     table_name : str
         The name of the destination table
     """
-    caller_module = get_caller_module()
-
     # Apply table prefix if set
     prefixed_table_name = f"{settings.PG_TABLE_PREFIX}{table_name}"
 
     df.write_database(
         table_name=prefixed_table_name, connection=ctx.pg_engine, if_table_exists="append"
     )
-    logging.info(
-        f"[{caller_module}] Loaded {df.height} rows into PostgreSQL table {prefixed_table_name}"
-    )
+    logging.info(f"Loaded {df.height} rows into PostgreSQL table {prefixed_table_name}")
 
 
 def truncate_postgresql_tables(ctx: ETLContext) -> None:
@@ -224,10 +193,8 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
     ctx : ETLContext
         The ETL context containing database connections
     """
-    caller_module = get_caller_module()
-
     with ctx.pg_engine.connect() as conn:
-        logging.info(f"[{caller_module}] Truncating all destination tables in PostgreSQL...")
+        logging.info("Truncating all destination tables in PostgreSQL...")
         for table in TABLES:
             prefixed_table = f"{settings.PG_TABLE_PREFIX}{table}"
             conn.execute(text(f"TRUNCATE TABLE {prefixed_table} RESTART IDENTITY CASCADE"))
@@ -245,13 +212,11 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
     export_dir : str, optional
         The directory where CSV files will be saved, by default "export"
     """
-    caller_module = get_caller_module()
-
     # Create export directory if it doesn't exist
     export_path = Path(export_dir)
     export_path.mkdir(parents=True, exist_ok=True)
 
-    logging.info(f"[{caller_module}] Exporting all tables to CSV in directory: {export_dir}")
+    logging.info(f"Exporting all tables to CSV in directory: {export_dir}")
 
     # Export each table to CSV
     for table in TABLES:
@@ -270,12 +235,12 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
                 df_pandas.to_csv(csv_path, index=False)
 
                 logging.info(
-                    f"[{caller_module}] Exported {len(df_pandas)} rows from table {prefixed_table} to {csv_path}"
+                    f"Exported {len(df_pandas)} rows from table {prefixed_table} to {csv_path}"
                 )
         except Exception as e:
-            logging.error(f"[{caller_module}] Error exporting table {table}: {e!s}")
+            logging.error(f"Error exporting table {table}: {e!s}")
 
-    logging.info(f"[{caller_module}] Export completed. CSV files saved in {export_dir} directory")
+    logging.info(f"Export completed. CSV files saved in {export_dir} directory")
 
 
 def handle_created_at(creation_col: str = "CREATION") -> pl.Expr:
