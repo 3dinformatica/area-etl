@@ -236,6 +236,8 @@ def migrate_companies(ctx: ETLContext) -> None:
         how="left",
     )
 
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_result.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
@@ -268,8 +270,9 @@ def migrate_companies(ctx: ETLContext) -> None:
         pl.col("municipality_id"),
         pl.col("ID_TIPO_FK").str.strip_chars().alias("company_type_id"),
         pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
-        # Get timestamp expressions
-        **handle_timestamps(df_titolare_model),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -374,6 +377,8 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
         right_on="municipality_name",
         how="left",
     )
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_with_municipality.select(
         [
             # ID and name
@@ -399,9 +404,9 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
             pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
             pl.col("id").alias("municipality_id"),
             # Get timestamp expressions for the original DataFrame
-            handle_timestamps()["created_at"],
-            handle_timestamps()["updated_at"],
-            handle_timestamps()["disabled_at"],
+            timestamp_exprs["created_at"],
+            timestamp_exprs["updated_at"],
+            timestamp_exprs["disabled_at"],
         ]
     )
 

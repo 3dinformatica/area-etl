@@ -349,6 +349,8 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("AMBITO_NOME").is_not_null() & (pl.col("AMBITO_NOME") != "")
     )
 
+    timestamp_exprs = handle_timestamps()
+
     # Rename columns to match the target schema
     df_result = df_result.select(
         pl.col("CLIENTID_TIPO_UDO_22_TEMPL").alias("id"),
@@ -376,7 +378,9 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("NATURE").alias("company_natures"),
         pl.col("FLUSSI").alias("ministerial_flows"),
         # Get timestamp expressions
-        **handle_timestamps(),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -779,6 +783,8 @@ def migrate_udos(ctx: ETLContext) -> None:
             )
 
     # Transform the main UDO data
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_udo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DESCR")
@@ -824,7 +830,9 @@ def migrate_udos(ctx: ETLContext) -> None:
         pl.col("PROVENIENZA_UO").alias("PROVENIENZA_UO"),
         pl.col("ID_UO").alias("ID_UO"),
         # Get timestamp expressions
-        **handle_timestamps(),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     # Check if building_ids exist in the buildings table
@@ -929,6 +937,8 @@ def migrate_operational_units(ctx: ETLContext) -> None:
     df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
 
     ### TRANSFORM ###
+    timestamp_exprs = handle_timestamps()
+
     df_result = df_uo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("COD_UNIVOCO_UO").str.strip_chars().alias("code"),
@@ -936,7 +946,9 @@ def migrate_operational_units(ctx: ETLContext) -> None:
         pl.col("DESCR").str.strip_chars().alias("description"),
         pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
         # Get timestamp expressions
-        **handle_timestamps(),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###

@@ -364,7 +364,7 @@ def handle_disabled_at(
     creation_col : str, optional
         The name of the creation timestamp column, by default "CREATION"
     direct_disabled_col : str | None, optional
-        The name of a column that directly contains the disabled timestamp, by default None
+        The name of a column that directly contains the disabled timestamp by default None
 
     Returns
     -------
@@ -410,7 +410,7 @@ def handle_timestamps(
     disabled_value : str, optional
         The value indicating that the record is disabled, by default "S"
     direct_disabled_col : str | None, optional
-        The name of a column that directly contains the disabled timestamp, by default None
+        The name of a column that directly contains the disabled timestamp by default None
 
     Returns
     -------

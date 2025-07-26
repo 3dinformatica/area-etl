@@ -76,6 +76,8 @@ def migrate_users(ctx: ETLContext) -> None:
         right_on="COD_LUOGO_NASCITA",
         how="left",
     )
+    timestamp_exprs = handle_timestamps(direct_disabled_col="DATA_DISABILITATO")
+
     df_result = (
         df_joined.join(
             df_utente_model,
@@ -105,7 +107,9 @@ def migrate_users(ctx: ETLContext) -> None:
             pl.col("PROFESSIONE").str.strip_chars().alias("job"),
             # pl.col("ID_UO_FK").alias("operational_unit_id"), FIXME: Fix reference to table
             # Get timestamp expressions with direct_disabled_col
-            **handle_timestamps(df_utente_model, direct_disabled_col="DATA_DISABILITATO"),
+            timestamp_exprs["created_at"],
+            timestamp_exprs["updated_at"],
+            timestamp_exprs["disabled_at"],
         )
         .filter(pl.col("username").is_not_null())
     )
