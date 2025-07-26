@@ -175,9 +175,9 @@ def migrate_user_companies(ctx: ETLContext) -> None:
         pl.col("CLIENTID").alias("id"),
         pl.col("ID_UTENTE_FK").alias("user_id"),
         pl.col("ID_TITOLARE_FK").alias("company_id"),
+        operator_timestamp_exprs["disabled_at"],
         operator_timestamp_exprs["created_at"],
         operator_timestamp_exprs["updated_at"],
-        operator_timestamp_exprs["disabled_at"],
     )
 
     # Combine the dataframes
@@ -208,9 +208,9 @@ def migrate_user_companies(ctx: ETLContext) -> None:
 
     # Create id mapping for duplicates
     id_map = {}
-    for group in df_duplicates.group_by(["user_id", "company_id"]):
-        kept_id = group["id"].first()
-        deleted_ids = group["id"].tail(-1)
+    for _key, group_df in df_duplicates.group_by(["user_id", "company_id"]):
+        kept_id = group_df["id"].first()
+        deleted_ids = group_df["id"].tail(-1)
         for deleted_id in deleted_ids:
             id_map[deleted_id] = kept_id
 
