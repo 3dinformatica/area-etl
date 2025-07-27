@@ -36,35 +36,32 @@ def map_macroarea(value: str | None) -> str | None:
     return macroarea_mapping.get(value, value)
 
 
-def map_specialty_type(value: str) -> str | None:
+def map_specialty_type(value: str | None) -> str | None:
     """Map a specialty type string to a standardized format.
 
-    This function takes a string representing a specialty type, converts it to lowercase,
-    removes leading and trailing whitespace, and maps it to a standardized value
-    using a match-case statement. If the value doesn't match any of the defined cases,
+    This function takes a string representing a specialty type and maps it to a standardized value
+    using a predefined dictionary. If the value is not found in the mapping,
     None is returned.
 
     Parameters
     ----------
-    value: str
-        The specialty type string to be mapped
+    value: str | None
+        The specialty type string to be mapped or None
 
     Returns
     -------
     str | None
-        The standardized specialty type value or None if no match is found
+        The standardized specialty type value or None if the input is not found in the mapping
     """
-    match value.lower().strip():
-        case "alt":
-            return "ALTRO"
-        case "terr" | "ter":
-            return "TERRITORIALE"
-        case "nonosp":
-            return "NON_OSPEDALIERO"
-        case "osp":
-            return "OSPEDALIERO"
-        case _:
-            return None
+    specialty_type_mapping = {
+        "alt": "ALTRO",
+        "ter": "TERRITORIALE",
+        "terr": "TERRITORIALE",
+        "nonosp": "NON_OSPEDALIERO",
+        "osp": "OSPEDALIERO",
+    }
+
+    return specialty_type_mapping.get(value)
 
 
 def migrate_grouping_specialties(ctx: ETLContext) -> None:
@@ -128,18 +125,67 @@ def migrate_specialties(ctx: ETLContext) -> None:
     df_artic_branca_altro_templ = extract_data(
         ctx, "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"
     )
-
     ### TRANSFORM ###
-    # Get timestamp expressions for disciplines
-    timestamp_exprs = handle_timestamps(df_disciplina_templ)
+    timestamp_exprs = handle_timestamps()
+
+    df_branca_templ_not_altro_tr = df_branca_templ.filter(
+        pl.col("IS_ALTRO").str.strip_chars().str.to_lowercase() == "n"
+    ).select(
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
+        pl.col("NOME").str.strip_chars().alias("name"),
+        pl.col("DESCR").str.strip_chars().fill_null("-").alias("description"),
+        pl.lit("BRANCH").alias("record_type"),
+        pl.lit(None).alias("type"),
+        pl.col("CODICE").str.strip_chars().alias("code"),
+        pl.when(pl.col("PROGRAMMAZIONE") == 1)
+        .then(True)
+        .otherwise(False)
+        .alias("is_used_in_cronos"),
+        pl.lit(True).alias("is_used_in_poa"),
+        pl.lit(None).alias("grouping_specialty_id"),
+        pl.col("ID_BRANCA").cast(pl.String).str.strip_chars().alias("old_id"),
+        pl.lit(None).alias("parent_specialty_id"),
+        timestamp_exprs["disabled_at"],
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+    )
+
+    df_branca_templ_altro_tr = df_branca_templ.filter(
+        pl.col("IS_ALTRO").str.strip_chars().str.to_lowercase() == "s"
+    )
+
+    if df_branca_templ_altro_tr.height != 1:
+        raise Exception(
+            f'There are {df_branca_templ_altro_tr.height} branches marked as "ALTRO". There should be only 1 branch marked as "ALTRO".'
+        )
+
+    parent_specialty_id = df_branca_templ_altro_tr.item(row=0, column="CLIENTID")
+
+    df_artic_branca_altro_templ_tr = df_artic_branca_altro_templ.select(
+        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
+        pl.col("DESCR").str.strip_chars().fill_null("-").alias("name"),
+        pl.col("SETTING_BRANCA").str.strip_chars().alias("description"),
+        pl.lit("BRANCH").alias("record_type"),
+        pl.lit(None).alias("type"),
+        pl.col("DESCR").str.strip_chars().fill_null("-").alias("code"),
+        pl.lit(True).alias("is_used_in_cronos"),
+        pl.lit(True).alias("is_used_in_poa"),
+        pl.lit(None).alias("grouping_specialty_id"),
+        pl.lit(None).alias("old_id"),
+        pl.lit(parent_specialty_id).alias("parent_specialty_id"),
+        timestamp_exprs["disabled_at"],
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+    )
 
     df_disciplines = df_disciplina_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("DESCR").str.strip_chars().alias("description"),
+        pl.lit("DISCIPLINE").alias("record_type"),
         pl.col("TIPO")
-        .str.to_lowercase()
         .str.strip_chars()
+        .str.to_lowercase()
         .map_elements(map_specialty_type, return_dtype=pl.String)
         .alias("type"),
         pl.col("CODICE").str.strip_chars().alias("code"),
@@ -153,70 +199,16 @@ def migrate_specialties(ctx: ETLContext) -> None:
         .str.strip_chars()
         .alias("grouping_specialty_id"),
         pl.col("ID_DISCIPLINA").cast(pl.String).str.strip_chars().alias("old_id"),
-        timestamp_exprs["created_at"],
-        timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
         pl.lit(None).alias("parent_specialty_id"),
-    ).with_columns(record_type=pl.lit("DISCIPLINE"))
-
-    # Process branches
-    # Get timestamp expressions for branches with custom disabled column and value
-    timestamp_exprs = handle_timestamps(disabled_col="ATTIVA", disabled_value="N")
-
-    df_branches = df_branca_templ.select(
-        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
-        pl.col("NOME").str.strip_chars().fill_null("-").alias("name"),
-        pl.col("DESCR").str.strip_chars().alias("description"),
-        pl.lit(None).alias("type"),
-        pl.col("CODICE").str.strip_chars().fill_null(pl.col("NOME")).alias("code"),
-        pl.when(pl.col("PROGRAMMAZIONE") == 1)
-        .then(True)
-        .otherwise(False)
-        .alias("is_used_in_cronos"),
-        pl.lit(True).alias("is_used_in_poa"),
-        pl.lit(None).alias("grouping_specialty_id"),
-        pl.col("ID_BRANCA").cast(pl.String).str.strip_chars().alias("old_id"),
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
-        pl.lit(None).alias("parent_specialty_id"),
-    ).with_columns(record_type=pl.lit("BRANCH"))
-
-    # Find parent branch ID for additional branches
-    parent_branches = df_branca_templ.filter(pl.col("IS_ALTRO") == "S")
-    parent_branch_id = None
-    if parent_branches.height > 0:
-        parent_branch_id = parent_branches.select(
-            pl.col("CLIENTID").cast(pl.String).str.strip_chars()
-        ).row(0)[0]
-
-    # Process additional branches
-    # Get timestamp expressions for additional branches
-    timestamp_exprs = handle_timestamps()
-
-    df_additional_branches = df_artic_branca_altro_templ.select(
-        pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
-        pl.col("DESCR").str.strip_chars().fill_null("-").alias("name"),
-        pl.col("SETTING_BRANCA").str.strip_chars().alias("description"),
-        pl.lit(None).alias("type"),
-        pl.col("DESCR").str.strip_chars().fill_null("-").alias("code"),
-        pl.lit(True).alias("is_used_in_cronos"),
-        pl.lit(True).alias("is_used_in_poa"),
-        pl.lit(None).alias("grouping_specialty_id"),
-        pl.lit(None).alias("old_id"),
-        timestamp_exprs["created_at"],
-        timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
-        pl.lit(parent_branch_id).alias("parent_specialty_id"),
-    ).with_columns(record_type=pl.lit("BRANCH"))
-
-    # Combine all dataframes
-    df_result = pl.concat(
-        [df_disciplines, df_branches, df_additional_branches], how="vertical_relaxed"
     )
 
-    # Remove duplicates based on name and code to avoid unique constraint violation
-    df_result = df_result.unique(subset=["name", "code"], keep="first")
+    df_result = pl.concat(
+        [df_branca_templ_not_altro_tr, df_artic_branca_altro_templ_tr, df_disciplines],
+        how="vertical_relaxed",
+    )
 
     ### LOAD ###
     load_data(ctx, df_result, "specialties")
