@@ -283,7 +283,7 @@ def handle_created_at(creation_col: str = "CREATION") -> pl.Expr:
     return (
         pl.col(creation_col)
         .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("created_at")
     )
@@ -313,7 +313,7 @@ def handle_updated_at(last_mod_col: str = "LAST_MOD", creation_col: str = "CREAT
     return (
         pl.col(last_mod_col)
         .fill_null(pl.col(creation_col))
-        .dt.replace_time_zone("Europe/Rome")
+        .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("updated_at")
     )
@@ -362,7 +362,7 @@ def handle_disabled_at(
         .then(
             pl.col(last_mod_col)
             .fill_null(pl.col(creation_col))
-            .dt.replace_time_zone("Europe/Rome")
+            .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
             .dt.replace_time_zone(None)
         )
         .otherwise(None)
