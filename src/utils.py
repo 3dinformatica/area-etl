@@ -181,6 +181,27 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     logging.info(f"Loaded {df.height} rows into PostgreSQL table {prefixed_table_name}")
 
 
+def truncate_postgresql_table(ctx: ETLContext, table: str) -> None:
+    """
+    Truncate a single table in PostgreSQL.
+
+    Clears all data from the specified table,
+    resetting identity sequences and cascading the truncation.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    table : str
+        The name of the table to truncate (without prefix)
+    """
+    with ctx.pg_engine.connect() as conn:
+        prefixed_table = f"{settings.PG_TABLE_PREFIX}{table}"
+        logging.info(f"Truncating PostgreSQL table {prefixed_table}...")
+        conn.execute(text(f"TRUNCATE TABLE {prefixed_table} RESTART IDENTITY CASCADE"))
+        conn.commit()
+
+
 def truncate_postgresql_tables(ctx: ETLContext) -> None:
     """
     Truncate all destination tables in PostgreSQL.
@@ -193,12 +214,9 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
     ctx : ETLContext
         The ETL context containing database connections
     """
-    with ctx.pg_engine.connect() as conn:
-        logging.info("Truncating all destination tables in PostgreSQL...")
-        for table in TABLES:
-            prefixed_table = f"{settings.PG_TABLE_PREFIX}{table}"
-            conn.execute(text(f"TRUNCATE TABLE {prefixed_table} RESTART IDENTITY CASCADE"))
-        conn.commit()
+    logging.info("Truncating all destination tables in PostgreSQL...")
+    for table in TABLES:
+        truncate_postgresql_table(ctx, table)
 
 
 def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
