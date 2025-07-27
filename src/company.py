@@ -430,7 +430,6 @@ def migrate_buildings(ctx: ETLContext) -> None:
     df_edificio_str_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL")
 
     ### TRANSFORM ###
-    # Get timestamp expressions
     timestamp_exprs = handle_timestamps()
 
     df_result = df_edificio_str_templ.select(
@@ -465,7 +464,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         )
     )
 
-    # Filter specific record
+    # TODO: Capire perchè non ha la physical struture associata
     df_result = df_result.filter(pl.col("id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
 
     ### LOAD ###
