@@ -128,9 +128,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
 
-    df_branca_templ_not_altro_tr = df_branca_templ.filter(
-        pl.col("IS_ALTRO").str.strip_chars().str.to_lowercase() == "n"
-    ).select(
+    df_branca_templ_not_altro_tr = df_branca_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("description"),
