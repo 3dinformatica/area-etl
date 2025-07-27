@@ -6,36 +6,66 @@ from src.settings import settings
 from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
+def migrate_operational_units(ctx: ETLContext) -> None:
+    """
+    Migrate operational units from Oracle to PostgreSQL.
+
+    Transfers data from the Oracle table "AUAC_USR.UO_MODEL" to the PostgreSQL table
+    "operational_units".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
+    ### EXTRACT ###
+    df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
+
+    ### TRANSFORM ###
+    timestamp_exprs = handle_timestamps()
+
+    df_result = df_uo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("COD_UNIVOCO_UO").str.strip_chars().alias("code"),
+        pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
+        pl.col("DESCR").str.strip_chars().alias("description"),
+        pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
+        # Get timestamp expressions
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
+    )
+
+    ### LOAD ###
+    load_data(ctx, df_result, "operational_units")
+
+
 def migrate_production_factor_types(ctx: ETLContext) -> None:
     """
     Migrate production factor types from Oracle to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Transfers data from the Oracle table "AUAC_USR.TIPO_FATTORE_PROD_TEMPL" to the PostgreSQL table
+    "production_factor_types".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_tipo_fattore_prod_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_FATTORE_PROD_TEMPL")
 
     ### TRANSFORM ###
-    # First, clean all string columns to remove NUL characters
-    string_columns = ["CLIENTID", "NOME", "DESCR", "TIPOLOGIA_FATT_PROD"]
-    for col in string_columns:
-        if col in df_tipo_fattore_prod_templ.columns:
-            df_tipo_fattore_prod_templ = df_tipo_fattore_prod_templ.with_columns(
-                pl.col(col).str.replace_all("\x00", "").alias(col)
-            )
-
-    # Get timestamp expressions
-    timestamp_exprs = handle_timestamps(df_tipo_fattore_prod_templ)
+    timestamp_exprs = handle_timestamps()
 
     df_result = df_tipo_fattore_prod_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
-        pl.col("DESCR").str.strip_chars().alias("code"),
+        pl.col("DESCR").str.strip_chars().str.replace_all(r"\s+", " ").alias("code"),
         pl.col("TIPOLOGIA_FATT_PROD").str.strip_chars().alias("category"),
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -46,23 +76,19 @@ def migrate_production_factors(ctx: ETLContext) -> None:
     """
     Migrate production factors from Oracle to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Transfers data from the Oracle table "AUAC_USR.FATT_PROD_UDO_MODEL" to the PostgreSQL table
+    "production_factors".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_fatt_prod_udo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.FATT_PROD_UDO_MODEL")
 
     ### TRANSFORM ###
-    # First, clean all string columns to remove NUL characters
-    string_columns = ["CLIENTID", "ID_TIPO_FK", "VALORE", "VALORE2", "VALORE3", "DESCR"]
-    for col in string_columns:
-        if col in df_fatt_prod_udo_model.columns:
-            df_fatt_prod_udo_model = df_fatt_prod_udo_model.with_columns(
-                pl.col(col).str.replace_all("\x00", "").alias(col)
-            )
-
-    # Get timestamp expressions
-    timestamp_exprs = handle_timestamps(df_fatt_prod_udo_model)
+    timestamp_exprs = handle_timestamps()
 
     df_result = df_fatt_prod_udo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
@@ -79,11 +105,21 @@ def migrate_production_factors(ctx: ETLContext) -> None:
         .fill_null("0")
         .cast(pl.UInt16)
         .alias("num_hospital_beds"),
-        pl.col("VALORE2").str.strip_chars().replace(["NUL"], None).alias("room_name"),
-        pl.col("DESCR").str.strip_chars().replace(["NUL"], None).alias("room_code"),
+        pl.col("VALORE2")
+        .str.strip_chars()
+        .str.replace_all(r"\s+", " ")
+        .replace(["NUL"], None)
+        .str.replace_all("\x00", "")
+        .alias("room_name"),
+        pl.col("DESCR")
+        .str.strip_chars()
+        .str.replace_all(r"\s+", " ")
+        .replace(["NUL"], None)
+        .str.replace_all("\x00", "")
+        .alias("room_code"),
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -108,15 +144,14 @@ def migrate_udo_type_classifications(ctx: ETLContext) -> None:
     )
 
     ### TRANSFORM ###
-    # Get timestamp expressions
-    timestamp_exprs = handle_timestamps(df_classificazione_udo_templ)
+    timestamp_exprs = handle_timestamps()
 
     df_result = df_classificazione_udo_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -409,6 +444,106 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     load_data(ctx, df_result, "udo_types")
 
 
+def migrate_udos(ctx: ETLContext) -> None:
+    """
+    Migrates UDO data from UDO_MODEL to the "udos" table.
+
+    Args:
+        ctx: The ETL context containing database connections
+    """
+    ### EXTRACT ###
+    df_udo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UDO_MODEL")
+    df_sede_oper_model = extract_data(ctx, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
+    df_struttura_model = extract_data(ctx, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
+    df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
+
+    ### TRANSFORM ###
+    timestamp_exprs = handle_timestamps()
+
+    df_result = df_udo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("DESCR")
+        .str.strip_chars()
+        .str.replace_all("\n", "")
+        .str.replace_all("\r", "")
+        .alias("name"),
+        pl.col("STATO").str.strip_chars().str.to_uppercase().fill_null("NUOVA").alias("status"),
+        pl.col("ID_UNIVOCO")
+        .str.strip_chars()
+        .str.replace_all("\n", "")
+        .str.replace_all("\r", "")
+        .alias("code"),
+        pl.col("ID_TIPO_UDO_22_FK").str.strip_chars().alias("udo_type_id"),
+        pl.col("ID_SEDE_FK").str.strip_chars().alias("operational_office_id"),
+        pl.col("ID_EDIFICIO_STR_FK").str.strip_chars().alias("building_id"),
+        pl.col("PIANO").str.strip_chars().alias("floor"),
+        pl.col("BLOCCO").str.strip_chars().replace("-", None).alias("block"),
+        pl.col("PROGRESSIVO").str.strip_chars().replace("-", None).alias("progressive"),
+        pl.col("CODICE_FLUSSO_MINISTERIALE").str.strip_chars().alias("ministerial_code"),
+        pl.col("COD_FAR_FAD").str.strip_chars().alias("farfad_code"),
+        pl.when(pl.col("SIO").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_sio"),
+        pl.col("STAREP").str.strip_chars().alias("starep_code"),
+        pl.col("CDC").str.strip_chars().alias("cost_center"),
+        pl.col("PAROLE_CHIAVE").str.strip_chars().alias("keywords"),
+        pl.col("ANNOTATIONS")
+        .str.strip_chars()
+        .str.replace_all("\n", "")
+        .str.replace_all("\r", "")
+        .alias("notes"),
+        pl.when(pl.col("WEEK").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_open_only_on_business_days"),
+        pl.when(pl.col("AUAC") == 1).then(True).otherwise(False).alias("is_auac"),
+        pl.when(pl.col("FLAG_MODULO").str.strip_chars().str.to_lowercase() == "y")
+        .then(True)
+        .otherwise(False)
+        .alias("is_module"),
+        pl.lit(None).alias("organigram_node_id"),  # TODO: Link with poa-service
+        pl.when(pl.col("PROVENIENZA_UO") == "ORGANIGRAMMA_TREE")
+        .then(None)
+        .otherwise(pl.col("ID_UO"))
+        .alias("ID_UO"),
+        timestamp_exprs["disabled_at"],
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+    )
+
+    df_1 = df_sede_oper_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("operational_office_id"),
+        pl.col("ID_STRUTTURA_FK").str.strip_chars().alias("physical_structure_id"),
+    )
+
+    df_2 = df_struttura_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("physical_structure_id"),
+        pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
+    )
+
+    df_x = df_1.join(df_2, on="physical_structure_id", how="left").select(
+        pl.col("operational_office_id"),
+        pl.col("company_id"),
+    )
+
+    df_result = df_result.join(df_x, on="operational_office_id", how="left")
+
+    df_z = df_uo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("operational_unit_id"),
+        pl.col("ID_UO").str.strip_chars(),
+    )
+
+    df_result = df_result.join(df_z, on="ID_UO", how="left")
+
+    df_result = df_result.drop("ID_UO")
+
+    df_result = df_result.filter(pl.col("building_id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
+
+    ### LOAD ###
+    load_data(ctx, df_result, "udos")
+
+
 def migrate_udo_production_factors(ctx: ETLContext) -> None:
     """
     Migrate UDO production factors from Oracle to PostgreSQL.
@@ -463,7 +598,6 @@ def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_bind_udo_branca = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA")
-
     df_bind_udo_branca_altro = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO")
 
     ### TRANSFORM ###
@@ -717,239 +851,3 @@ def migrate_udos_history(ctx: ETLContext) -> None:
 
     ### LOAD ###
     load_data(ctx, df_result, "udo_status_history")
-
-
-def migrate_udos(ctx: ETLContext) -> None:
-    """
-    Migrates UDO data from UDO_MODEL to udos table.
-
-    Args:
-        ctx: The ETL context containing database connections
-    """
-    ### EXTRACT ###
-    # Extract main UDO data
-    df_udo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UDO_MODEL")
-
-    # Extract operational office data
-    df_sede_oper = extract_data(ctx, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
-
-    # Extract structure data
-    df_struttura = extract_data(ctx, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
-
-    # Extract company data
-    df_titolare = extract_data(ctx, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
-
-    # Extract valid building IDs from PostgreSQL
-    df_buildings = extract_data(
-        ctx, f"SELECT id FROM {settings.PG_TABLE_PREFIX}buildings", source="postgresql"
-    )
-    # Convert all building IDs to strings and then lowercase for case-insensitive comparison
-    valid_building_ids = {
-        str(id).lower() if id is not None else None for id in df_buildings["id"].to_list()
-    }
-
-    # Extract UO_MODEL data for operational units
-    try:
-        df_uo_model = extract_data(ctx, "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL")
-    except Exception as e:
-        logging.warning(f"Could not extract UO_MODEL data: {e}")
-        df_uo_model = pl.DataFrame({"ID_UO": [], "CLIENTID": []})
-
-    ### TRANSFORM ###
-    # Clean string columns in the main UDO data
-    string_columns = [
-        "CLIENTID",
-        "DESCR",
-        "ID_UNIVOCO",
-        "ID_TIPO_UDO_22_FK",
-        "ID_SEDE_FK",
-        "ID_EDIFICIO_STR_FK",
-        "PIANO",
-        "STATO",
-        "BLOCCO",
-        "PROGRESSIVO",
-        "CODICE_FLUSSO_MINISTERIALE",
-        "COD_FAR_FAD",
-        "STAREP",
-        "CDC",
-        "PAROLE_CHIAVE",
-        "ANNOTATIONS",
-    ]
-
-    for col in string_columns:
-        if col in df_udo_model.columns:
-            df_udo_model = df_udo_model.with_columns(
-                pl.col(col).str.replace_all("\x00", "").alias(col)
-            )
-
-    # Transform the main UDO data
-    timestamp_exprs = handle_timestamps()
-
-    df_result = df_udo_model.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("DESCR")
-        .str.strip_chars()
-        .str.replace_all("\n", "")
-        .str.replace_all("\r", "")
-        .alias("name"),
-        pl.col("STATO").str.strip_chars().str.to_uppercase().fill_null("NUOVA").alias("status"),
-        pl.col("ID_UNIVOCO")
-        .str.strip_chars()
-        .str.replace_all("\n", "")
-        .str.replace_all("\r", "")
-        .alias("code"),
-        pl.col("ID_TIPO_UDO_22_FK").str.strip_chars().alias("udo_type_id"),
-        pl.col("ID_SEDE_FK").str.strip_chars().alias("operational_office_id"),
-        pl.col("ID_EDIFICIO_STR_FK").str.strip_chars().alias("building_id"),
-        pl.col("PIANO").str.strip_chars().alias("floor"),
-        pl.col("BLOCCO").str.strip_chars().replace("-", None).alias("block"),
-        pl.col("PROGRESSIVO").str.strip_chars().replace("-", None).alias("progressive"),
-        pl.col("CODICE_FLUSSO_MINISTERIALE").str.strip_chars().alias("ministerial_code"),
-        pl.col("COD_FAR_FAD").str.strip_chars().alias("farfad_code"),
-        pl.when(pl.col("SIO").str.strip_chars().str.to_lowercase() == "y")
-        .then(True)
-        .otherwise(False)
-        .alias("is_sio"),
-        pl.col("STAREP").str.strip_chars().alias("starep_code"),
-        pl.col("CDC").str.strip_chars().alias("cost_center"),
-        pl.col("PAROLE_CHIAVE").str.strip_chars().alias("keywords"),
-        pl.col("ANNOTATIONS")
-        .str.strip_chars()
-        .str.replace_all("\n", "")
-        .str.replace_all("\r", "")
-        .alias("notes"),
-        pl.when(pl.col("WEEK").str.strip_chars().str.to_lowercase() == "y")
-        .then(True)
-        .otherwise(False)
-        .alias("is_open_only_on_business_days"),
-        pl.when(pl.col("AUAC") == 1).then(True).otherwise(False).alias("is_auac"),
-        pl.when(pl.col("FLAG_MODULO").str.strip_chars().str.to_lowercase() == "y")
-        .then(True)
-        .otherwise(False)
-        .alias("is_module"),
-        pl.col("PROVENIENZA_UO").alias("PROVENIENZA_UO"),
-        pl.col("ID_UO").alias("ID_UO"),
-        # Get timestamp expressions
-        timestamp_exprs["created_at"],
-        timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
-    )
-
-    # Check if building_ids exist in the buildings table
-    # If not, log a warning and set them to NULL
-    invalid_building_ids = []
-
-    def check_building_id(row):
-        building_id = row["building_id"]
-        # Convert to string and then lowercase for case-insensitive comparison
-        if building_id is not None and str(building_id).lower() not in valid_building_ids:
-            invalid_building_ids.append(building_id)
-            return None
-        return building_id
-
-    # Apply the check to each row
-    df_result = df_result.with_columns(
-        pl.struct(["building_id"])
-        .map_elements(lambda row: check_building_id(row), return_dtype=pl.String)
-        .alias("building_id")
-    )
-
-    # Log warnings for invalid building_ids
-    for building_id in set(invalid_building_ids):
-        logging.warning(f"Building ID {building_id} not found in buildings table. Setting to NULL.")
-
-    # Join with operational office, structure, and company data
-    df_sede_struttura = df_sede_oper.select(
-        pl.col("CLIENTID").alias("operational_office_id"),
-        pl.col("ID_STRUTTURA_FK").alias("id_struttura_fk"),
-    )
-
-    df_struttura_titolare = df_struttura.select(
-        pl.col("CLIENTID").alias("id_struttura_fk"),
-        pl.col("ID_TITOLARE_FK").alias("id_titolare_fk"),
-    )
-
-    df_titolare_id = df_titolare.select(pl.col("CLIENTID").alias("id_titolare_fk"))
-
-    # Join to get company_id
-    df_joined = df_sede_struttura.join(df_struttura_titolare, on="id_struttura_fk", how="left")
-
-    df_joined = df_joined.join(df_titolare_id, on="id_titolare_fk", how="left")
-
-    df_company_map = df_joined.select(
-        pl.col("operational_office_id"), pl.col("id_titolare_fk").alias("company_id")
-    )
-
-    # Join with company map
-    df_result = df_result.join(df_company_map, on="operational_office_id", how="left")
-
-    # Process operational unit data
-    # For UO_MODEL source
-    df_uo_filtered = df_result.filter(pl.col("PROVENIENZA_UO") == "UO_MODEL")
-
-    if df_uo_model.height > 0 and df_uo_filtered.height > 0:
-        df_uo_filtered = df_uo_filtered.join(
-            df_uo_model, left_on="ID_UO", right_on="ID_UO", how="left"
-        ).with_columns(pl.col("CLIENTID").alias("operational_unit_id"))
-
-        # Update the main result with operational unit IDs
-        df_result = df_result.join(
-            df_uo_filtered.select("id", "operational_unit_id"), on="id", how="left"
-        )
-
-    # Since we don't have access to the V_NODI table through oracle_poa_engine,
-    # we'll skip that part and just set organigram_node_id to null
-
-    # Add organigram_node_id column with null values
-    df_result = df_result.with_columns(pl.lit(None).alias("organigram_node_id"))
-
-    # Drop unnecessary columns
-    df_result = df_result.drop(["PROVENIENZA_UO", "ID_UO"])
-
-    # Filter out invalid UDO types
-    invalid_udo_types = [
-        "3E2436FA-B18B-3B51-F0EC-A2DB6B8E8AD0",
-        "9802C27D-1001-BC4C-7C84-59E8CD1832CE",
-        "292B63D5-E3C3-8B12-B565-7919E3D86ABE",
-        "6DEBDC16-90D5-D3F3-82FA-F548381CBB51",
-        "53F0D51B-FC0C-305D-2090-1D2A48573497",
-    ]
-
-    df_result = df_result.filter(~pl.col("udo_type_id").is_in(invalid_udo_types))
-
-    ### LOAD ###
-    load_data(ctx, df_result, "udos")
-
-
-def migrate_operational_units(ctx: ETLContext) -> None:
-    """
-    Migrate operational units from Oracle to PostgreSQL.
-
-    Transfers data from the Oracle table "AUAC_USR.UO_MODEL" to the PostgreSQL table
-    "operational_units".
-
-    Parameters
-    ----------
-    ctx: ETLContext
-        The ETL context containing database connections
-    """
-    ### EXTRACT ###
-    df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
-
-    ### TRANSFORM ###
-    timestamp_exprs = handle_timestamps()
-
-    df_result = df_uo_model.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("COD_UNIVOCO_UO").str.strip_chars().alias("code"),
-        pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
-        pl.col("DESCR").str.strip_chars().alias("description"),
-        pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
-        # Get timestamp expressions
-        timestamp_exprs["created_at"],
-        timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
-    )
-
-    ### LOAD ###
-    load_data(ctx, df_result, "operational_units")
