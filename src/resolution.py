@@ -94,7 +94,6 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
     df_tipo_atto = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_ATTO")
 
     ### TRANSFORM ###
-    # Get timestamp expressions
     timestamp_exprs = handle_timestamps()
 
     df_tipo_delibera = df_tipo_delibera.select(
@@ -104,9 +103,6 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
     )
-    # Get timestamp expressions
-    timestamp_exprs = handle_timestamps()
-
     df_tipo_atto = df_tipo_atto.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().str.to_uppercase().alias("name"),
@@ -142,7 +138,6 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_resolution_types["id"] = df_resolution_types["id"].astype("string")
     df_resolution_types = pl.from_pandas(df_resolution_types)
 
-    # Get timestamp expressions
     timestamp_exprs = handle_timestamps()
 
     df_delibera_templ = df_delibera_templ.select(
@@ -174,8 +169,6 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
     )
-    # Get timestamp expressions
-    timestamp_exprs = handle_timestamps()
 
     df_atto_model = df_atto_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
