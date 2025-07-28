@@ -217,57 +217,60 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     logging.info(f"Loaded {df.height} rows into PostgreSQL {db_name} database table {table_name}")
 
 
-def truncate_postgresql_table(ctx: ETLContext, table: str) -> None:
+def truncate_pg_table(engine: Engine, table: str) -> None:
     """
-    Truncate a single table in PostgreSQL.
+    Truncate a specific PostgreSQL table.
 
-    Clears all data from the specified table,
-    resetting identity sequences and cascading the truncation.
+    This function executes a TRUNCATE TABLE command with CASCADE option on the specified table,
+    which removes all rows from the table and resets any identity columns.
 
     Parameters
     ----------
-    ctx : ETLContext
-        The ETL context containing database connections
+    engine : Engine
+        The SQLAlchemy engine connection to the PostgreSQL database
     table : str
         The name of the table to truncate
     """
-    # Determine which database to use based on the table name
-    if table in AUAC_TABLES:
-        engine = ctx.pg_engine_auac
-        db_name = "AUAC"
-    else:
-        engine = ctx.pg_engine_core
-        db_name = "CORE"
-
     with engine.connect() as conn:
-        logging.info(f"Truncating PostgreSQL {db_name} database table {table}...")
+        logging.info(f'Truncating PostgreSQL {engine} database table "{table}"...')
         conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
         conn.commit()
 
 
-def truncate_postgresql_tables(ctx: ETLContext) -> None:
+def truncate_core_tables(ctx: ETLContext) -> None:
     """
-    Truncate all destination tables in PostgreSQL.
+    Truncate all core tables in the PostgreSQL database.
 
-    Clears all data from the tables listed in the TABLES and AUAC_TABLES constants,
-    resetting identity sequences and cascading the truncation.
+    This function iterates through all core tables defined in CORE_TABLES
+    and truncates each one using the truncate_pg_table function.
 
     Parameters
     ----------
     ctx : ETLContext
         The ETL context containing database connections
     """
-    logging.info("Truncating all destination tables in PostgreSQL CORE and AUAC databases...")
+    logging.info(f"Truncating all target tables in PostgreSQL {ctx.pg_engine_core}...")
 
-    # Truncate tables in the CORE database
-    logging.info("Truncating tables in the CORE database...")
     for table in CORE_TABLES:
-        truncate_postgresql_table(ctx, table)
+        truncate_pg_table(ctx.pg_engine_core, table)
 
-    # Truncate tables in the AUAC database
-    logging.info("Truncating tables in the AUAC database...")
+
+def truncate_auac_tables(ctx: ETLContext) -> None:
+    """
+    Truncate all AUAC (Authorization and Accreditation) tables in the PostgreSQL database.
+
+    This function iterates through all AUAC tables defined in AUAC_TABLES
+    and truncates each one using the truncate_pg_table function.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    logging.info(f'Truncating all target tables in PostgreSQL {ctx.pg_engine_auac}..."')
+
     for table in AUAC_TABLES:
-        truncate_postgresql_table(ctx, table)
+        truncate_pg_table(ctx.pg_engine_core, table)
 
 
 def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
