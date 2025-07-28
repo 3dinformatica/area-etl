@@ -1,14 +1,8 @@
--- Create auac schema if it doesn't exist
-CREATE SCHEMA IF NOT EXISTS auac;
-
--- Set search path to include auac schema
-SET search_path TO auac, core, public;
-
 -- Sequences
-CREATE SEQUENCE auac.sq_procedures_progressive_code AS integer;
+CREATE SEQUENCE sq_procedures_progressive_code AS integer;
 
 -- Tables
-CREATE TABLE auac.attachment_types
+CREATE TABLE attachment_types
 (
     id           UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name         TEXT                     NOT NULL,
@@ -20,7 +14,7 @@ CREATE TABLE auac.attachment_types
     CONSTRAINT pk_attachment_types PRIMARY KEY (id)
 );
 
-CREATE TABLE auac.procedure_attachments
+CREATE TABLE procedure_attachments
 (
     id                              UUID                     NOT NULL DEFAULT gen_random_uuid(),
     procedure_id                    UUID                     NOT NULL,
@@ -38,7 +32,7 @@ CREATE TABLE auac.procedure_attachments
     CONSTRAINT pk_procedure_attachments PRIMARY KEY (id)
 );
 
-CREATE TABLE auac.procedure_entities
+CREATE TABLE procedure_entities
 (
     id                           UUID                     NOT NULL DEFAULT gen_random_uuid(),
     procedure_id                 UUID                     NOT NULL,
@@ -69,7 +63,7 @@ CREATE TABLE auac.procedure_entities
     CONSTRAINT pk_procedure_entities PRIMARY KEY (id)
 );
 
-CREATE TABLE auac.procedure_entity_requirements
+CREATE TABLE procedure_entity_requirements
 (
     id                        UUID                     NOT NULL DEFAULT gen_random_uuid(),
     root_procedure_id         UUID                     NOT NULL,
@@ -91,7 +85,7 @@ CREATE TABLE auac.procedure_entity_requirements
     CONSTRAINT pk_procedure_entity_requirements PRIMARY KEY (id)
 );
 
-CREATE TABLE auac.procedure_notes
+CREATE TABLE procedure_notes
 (
     id           UUID                     NOT NULL DEFAULT gen_random_uuid(),
     procedure_id UUID                     NOT NULL,
@@ -103,7 +97,7 @@ CREATE TABLE auac.procedure_notes
     CONSTRAINT pk_procedure_notes PRIMARY KEY (id)
 );
 
-CREATE TABLE auac.procedure_type_requirement_list_classification_mental
+CREATE TABLE procedure_type_requirement_list_classification_mental
 (
     procedure_type             TEXT    NOT NULL,
     requirement_list_id        UUID    NOT NULL,
@@ -115,7 +109,7 @@ CREATE TABLE auac.procedure_type_requirement_list_classification_mental
                                                                                      is_mental_health)
 );
 
-CREATE TABLE auac.procedure_type_requirement_list_comp_type_comp_class
+CREATE TABLE procedure_type_requirement_list_comp_type_comp_class
 (
     id                        UUID NOT NULL DEFAULT gen_random_uuid(),
     procedure_type            TEXT NOT NULL,
@@ -129,14 +123,14 @@ CREATE TABLE auac.procedure_type_requirement_list_comp_type_comp_class
                                                                                                   company_classification_id)
 );
 
-CREATE TABLE auac.procedure_type_requirement_list_for_physical_structures
+CREATE TABLE procedure_type_requirement_list_for_physical_structures
 (
     procedure_type      TEXT NOT NULL,
     requirement_list_id UUID NOT NULL,
     CONSTRAINT pk_procedure_type_requirement_list_for_physical_structures PRIMARY KEY (procedure_type, requirement_list_id)
 );
 
-CREATE TABLE auac.procedure_type_requirement_list_udo_type
+CREATE TABLE procedure_type_requirement_list_udo_type
 (
     procedure_type      TEXT NOT NULL,
     requirement_list_id UUID NOT NULL,
@@ -144,10 +138,10 @@ CREATE TABLE auac.procedure_type_requirement_list_udo_type
     CONSTRAINT pk_procedure_type_requirement_list_udo_type PRIMARY KEY (procedure_type, requirement_list_id, udo_type_id)
 );
 
-CREATE TABLE auac.procedures
+CREATE TABLE procedures
 (
     id                     UUID                     NOT NULL DEFAULT gen_random_uuid(),
-    progressive_code       INTEGER                  NOT NULL DEFAULT nextval('auac.sq_procedures_progressive_code'),
+    progressive_code       INTEGER                  NOT NULL DEFAULT nextval('sq_procedures_progressive_code'),
     company_id             UUID                     NOT NULL,
     procedure_type         TEXT                     NOT NULL,
     status                 TEXT                     NOT NULL,
@@ -165,7 +159,7 @@ CREATE TABLE auac.procedures
     CONSTRAINT uc_procedures_progressive_code UNIQUE (progressive_code)
 );
 
-CREATE TABLE auac.requirement_taxonomies
+CREATE TABLE requirement_taxonomies
 (
     id          UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name        TEXT                     NOT NULL,
@@ -178,7 +172,7 @@ CREATE TABLE auac.requirement_taxonomies
     CONSTRAINT uc_requirement_taxonomies_name UNIQUE (name)
 );
 
-CREATE TABLE auac.requirements
+CREATE TABLE requirements
 (
     id                      UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name                    TEXT                     NOT NULL,
@@ -196,7 +190,7 @@ CREATE TABLE auac.requirements
     CONSTRAINT uc_requirements_name UNIQUE (name)
 );
 
-CREATE TABLE auac.requirement_lists
+CREATE TABLE requirement_lists
 (
     id            UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name          TEXT                     NOT NULL,
@@ -209,7 +203,7 @@ CREATE TABLE auac.requirement_lists
     CONSTRAINT uc_requirement_lists_name UNIQUE (name)
 );
 
-CREATE TABLE auac.requirementlist_requirements
+CREATE TABLE requirementlist_requirements
 (
     requirement_list_id UUID NOT NULL,
     requirement_id      UUID NOT NULL,
@@ -219,77 +213,77 @@ CREATE TABLE auac.requirementlist_requirements
 );
 
 -- Foreign key constraints
-ALTER TABLE auac.procedure_attachments
+ALTER TABLE procedure_attachments
     ADD CONSTRAINT fk_procedure_attachments_attachment_type_id FOREIGN KEY (attachment_type_id)
-        REFERENCES auac.attachment_types (id)
+        REFERENCES attachment_types (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.procedure_entities
+ALTER TABLE procedure_entities
     ADD CONSTRAINT fk_procedure_entities_procedures_id FOREIGN KEY (procedure_id)
-        REFERENCES auac.procedures (id)
+        REFERENCES procedures (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.procedure_entity_requirements
+ALTER TABLE procedure_entity_requirements
     ADD CONSTRAINT fk_procedure_entity_requirements_procedure_entities_id FOREIGN KEY (procedure_entity_id)
-        REFERENCES auac.procedure_entities (id)
+        REFERENCES procedure_entities (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.procedure_notes
+ALTER TABLE procedure_notes
     ADD CONSTRAINT fk_procedure_note_procedures_id FOREIGN KEY (procedure_id)
-        REFERENCES auac.procedures (id)
+        REFERENCES procedures (id)
         ON UPDATE NO ACTION
         ON DELETE CASCADE;
 
-ALTER TABLE auac.procedure_type_requirement_list_classification_mental
+ALTER TABLE procedure_type_requirement_list_classification_mental
     ADD CONSTRAINT fk_procedure_type_requirement_list_classification_mental_requirement_list_id FOREIGN KEY (requirement_list_id)
-        REFERENCES auac.requirement_lists (id)
+        REFERENCES requirement_lists (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.procedure_type_requirement_list_comp_type_comp_class
+ALTER TABLE procedure_type_requirement_list_comp_type_comp_class
     ADD CONSTRAINT fk_procedure_type_requirement_list_comp_type_comp_class_requirement_list_id FOREIGN KEY (requirement_list_id)
-        REFERENCES auac.requirement_lists (id)
+        REFERENCES requirement_lists (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.procedure_type_requirement_list_for_physical_structures
+ALTER TABLE procedure_type_requirement_list_for_physical_structures
     ADD CONSTRAINT fk_procedure_type_requirement_list_for_physical_structures_requirement_list_id FOREIGN KEY (requirement_list_id)
-        REFERENCES auac.requirement_lists (id)
+        REFERENCES requirement_lists (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.procedure_type_requirement_list_udo_type
+ALTER TABLE procedure_type_requirement_list_udo_type
     ADD CONSTRAINT fk_procedure_type_requirement_list_udo_type_requirement_list_id FOREIGN KEY (requirement_list_id)
-        REFERENCES auac.requirement_lists (id)
+        REFERENCES requirement_lists (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.requirementlist_requirements
+ALTER TABLE requirementlist_requirements
     ADD CONSTRAINT fk_requirementlist_requirements_requirement_list_id FOREIGN KEY (requirement_list_id)
-        REFERENCES auac.requirement_lists (id)
+        REFERENCES requirement_lists (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.requirementlist_requirements
+ALTER TABLE requirementlist_requirements
     ADD CONSTRAINT fk_requirementlist_requirements_requirement_id FOREIGN KEY (requirement_id)
-        REFERENCES auac.requirements (id)
+        REFERENCES requirements (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
-ALTER TABLE auac.requirements
+ALTER TABLE requirements
     ADD CONSTRAINT fk_requirements_requirement_taxonomy_id FOREIGN KEY (requirement_taxonomy_id)
-        REFERENCES auac.requirement_taxonomies (id)
+        REFERENCES requirement_taxonomies (id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION;
 
 -- Alter Sequences
-ALTER SEQUENCE auac.sq_procedures_progressive_code OWNED BY auac.procedures.progressive_code;
+ALTER SEQUENCE sq_procedures_progressive_code OWNED BY procedures.progressive_code;
 
 -- Seed
-INSERT INTO auac.attachment_types (id, name, is_mandatory)
+INSERT INTO attachment_types (id, name, is_mandatory)
 VALUES ('B66C1E6C-B729-1B6B-E053-0100007F7D21', 'Planimetria Locali', True),
        ('B66C1E6C-B72A-1B6B-E053-0100007F7D21', 'Attestato Abitabilità Locali', True),
        ('B66C1E6C-B72E-1B6B-E053-0100007F7D21', 'Dichiarazione Accettazione Incarico Direttore Sanitario', True),
