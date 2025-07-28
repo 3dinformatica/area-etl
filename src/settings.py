@@ -39,8 +39,6 @@ class Settings(BaseSettings):
         Connection string for Oracle database
     PG_URI: str
         Connection string for PostgreSQL database
-    PG_TABLE_PREFIX: str
-        Prefix for PostgreSQL tables
     ATTACHMENTS_DIR: str
         Directory for storing attachments
     """
@@ -48,7 +46,6 @@ class Settings(BaseSettings):
     ORACLE_CLIENT_LIB_DIR: str = "/path/to/instantclient"
     ORACLE_URI: str = "oracle://username:password@hostname:1521/service_name"
     PG_URI: str = "postgresql://username:password@hostname:5432/database_name"
-    PG_TABLE_PREFIX: str = ""
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"

@@ -818,7 +818,7 @@ def migrate_udos_history(ctx: ETLContext) -> None:
     # Verify UDO IDs exist in the udos table
     try:
         df_udos = pl.read_database(
-            f"SELECT id FROM {settings.PG_TABLE_PREFIX}udos",
+            "SELECT id FROM udos",
             connection=ctx.pg_engine,
             infer_schema_length=None,
         )
