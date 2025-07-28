@@ -2,7 +2,7 @@ import logging
 
 import polars as pl
 
-from src.settings import settings
+from settings import settings
 from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
@@ -168,17 +168,13 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     ### EXTRACT ###
     df_tipo_udo_22_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_UDO_22_TEMPL")
     df_bind_tipo_22_ambito = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_TIPO_22_AMBITO")
-
     df_ambito_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.AMBITO_TEMPL")
     df_bind_tipo_22_natura = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_TIPO_22_NATURA")
-
     df_natura_titolare_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL")
     df_bind_tipo_22_flusso = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_TIPO_22_FLUSSO")
-
     df_flusso_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.FLUSSO_TEMPL")
 
     ### TRANSFORM ###
-    # Clean and transform the main table
     df_tipo_udo_22_templ = df_tipo_udo_22_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("CLIENTID_TIPO_UDO_22_TEMPL"),
         pl.col("DESCR").str.strip_chars(),
@@ -412,10 +408,9 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("AGGIUNGI_AMBITO").alias("has_scopes"),
         pl.col("NATURE").alias("company_natures"),
         pl.col("FLUSSI").alias("ministerial_flows"),
-        # Get timestamp expressions
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
@@ -538,6 +533,7 @@ def migrate_udos(ctx: ETLContext) -> None:
 
     df_result = df_result.drop("ID_UO")
 
+    # TODO: Capire perchè non ha la physical struture associata. Stesso problema nella migrate_buildings in company.py
     df_result = df_result.filter(pl.col("building_id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
 
     ### LOAD ###

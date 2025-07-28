@@ -9,7 +9,7 @@ import polars as pl
 from cx_Oracle import init_oracle_client
 from sqlalchemy import Engine, create_engine, text
 
-from src.settings import settings
+from settings import settings
 
 # List of tables used in multiple functions
 TABLES = [

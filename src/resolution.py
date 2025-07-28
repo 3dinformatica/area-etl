@@ -6,7 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from src.settings import settings
+from settings import settings
 from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 
