@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import polars as pl
 from cx_Oracle import init_oracle_client
+from minio import Minio
 from sqlalchemy import Engine, create_engine, text
 
 from settings import settings
@@ -517,3 +518,32 @@ def format_elapsed_time(start_time: datetime) -> str:
     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{int(hours)}h {int(minutes)}m {seconds:.2f}s"
+
+
+def create_bucket(bucket_name: str) -> None:
+    """
+    Create a MinIO bucket if it doesn't already exist.
+
+    Parameters
+    ----------
+    bucket_name : str
+        The name of the bucket to create
+
+    Returns
+    -------
+    None
+    """
+    client = Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_ACCESS_KEY,
+        secure=False,
+    )
+
+    found = client.bucket_exists(bucket_name)
+
+    if not found:
+        client.make_bucket(bucket_name)
+        logging.info(f'Created MinIO bucket "{bucket_name}"')
+    else:
+        logging.info(f'Bucket MinIO "{bucket_name}" already exists')
