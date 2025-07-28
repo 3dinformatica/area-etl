@@ -323,41 +323,53 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
     logging.info(f"Export completed. CSV files saved in {export_dir} directory")
 
 
-def handle_created_at(creation_col: str = "CREATION") -> pl.Expr:
+def handle_created_at(
+    creation_col: str = "CREATION", current_time: datetime | None = None
+) -> pl.Expr:
     """
     Handle the created_at timestamp field transformation.
 
     This function applies the standard transformation for created_at fields:
     - Uses the specified creation column from the source
-    - Fills null values with current UTC time
+    - Fills null values with provided current_time or generates a new UTC time if not provided
     - Replaces timezone from "Europe/Rome" to None
 
     Parameters
     ----------
     creation_col : str, optional
         The name of the creation timestamp column, by default "CREATION"
+    current_time : datetime, optional
+        A timestamp to use for null values, by default None (will use current time)
 
     Returns
     -------
     pl.Expr
         A polars expression that can be used in a select statement
     """
+    if current_time is None:
+        current_time = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+
     return (
         pl.col(creation_col)
-        .fill_null(datetime.now(timezone.utc).replace(tzinfo=None))
+        .fill_null(current_time)
         .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("created_at")
     )
 
 
-def handle_updated_at(last_mod_col: str = "LAST_MOD", creation_col: str = "CREATION") -> pl.Expr:
+def handle_updated_at(
+    last_mod_col: str = "LAST_MOD",
+    creation_col: str = "CREATION",
+    current_time: datetime | None = None,
+) -> pl.Expr:
     """
     Handle the updated_at timestamp field transformation.
 
     This function applies the standard transformation for updated_at fields:
     - Uses the specified last modification column from the source
     - Fills null values with the creation column
+    - If both last_mod_col and creation_col are null, uses the provided current_time or generates a new timestamp
     - Replaces timezone from "Europe/Rome" to None
 
     Parameters
@@ -366,15 +378,21 @@ def handle_updated_at(last_mod_col: str = "LAST_MOD", creation_col: str = "CREAT
         The name of the last modification timestamp column, by default "LAST_MOD"
     creation_col : str, optional
         The name of the creation timestamp column, by default "CREATION"
+    current_time : datetime, optional
+        A timestamp to use when both columns are null, by default None (will use current time)
 
     Returns
     -------
     pl.Expr
         A polars expression that can be used in a select statement
     """
+    if current_time is None:
+        current_time = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+
     return (
         pl.col(last_mod_col)
         .fill_null(pl.col(creation_col))
+        .fill_null(current_time)
         .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("updated_at")
@@ -443,6 +461,7 @@ def handle_timestamps(
     Handle all timestamp field transformations at once.
 
     This function applies the standard transformations for created_at, updated_at, and disabled_at fields.
+    It ensures that created_at and updated_at use the same timestamp when both source columns are null.
 
     Parameters
     ----------
@@ -462,9 +481,12 @@ def handle_timestamps(
     dict[str, pl.Expr]
         A dictionary of polars expressions that can be used in a select statement
     """
+    # Generate a single timestamp to use for both created_at and updated_at when source columns are null
+    current_time = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+
     return {
-        "created_at": handle_created_at(creation_col),
-        "updated_at": handle_updated_at(last_mod_col, creation_col),
+        "created_at": handle_created_at(creation_col, current_time),
+        "updated_at": handle_updated_at(last_mod_col, creation_col, current_time),
         "disabled_at": handle_disabled_at(
             disabled_col, disabled_value, last_mod_col, creation_col, direct_disabled_col
         ),
