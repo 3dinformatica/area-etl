@@ -176,23 +176,16 @@ def main() -> None:
             logging.info("CSV export completed successfully")
             return
 
-        # Regular ETL process
         logging.info("Starting A.Re.A. ETL process...")
-
-        # Parse modules to migrate
         modules_to_migrate = args.modules.lower().split(",")
 
-        # Determine which modules to migrate
         if "all" in modules_to_migrate:
-            logging.info("Migrating all modules...")
             migrate_core(ctx)
             migrate_auac(ctx)
         else:
             if "core" in modules_to_migrate:
-                logging.info("Migrating core module...")
                 migrate_core(ctx)
             if "auac" in modules_to_migrate:
-                logging.info("Migrating auac module...")
                 migrate_auac(ctx)
 
         elapsed_time = format_elapsed_time(start_time)
