@@ -9,7 +9,8 @@ services:
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=P4ssword!
     volumes:
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./sql/init_core.sql:/docker-entrypoint-initdb.d/01_init_core.sql
+      - ./sql/init_auac.sql:/docker-entrypoint-initdb.d/02_init_auac.sql
 
   area-etl-minio:
     container_name: area-etl-minio
