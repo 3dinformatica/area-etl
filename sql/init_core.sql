@@ -1,3 +1,5 @@
+\c area_core_db
+
 CREATE TABLE public.buildings
 (
     id                    UUID                     DEFAULT gen_random_uuid() NOT NULL,

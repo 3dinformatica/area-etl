@@ -130,7 +130,7 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_tipo_proc_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL")
     df_tipo_delibera = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_DELIBERA")
     df_tipo_atto = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_ATTO")
-    df_resolution_types = extract_data(ctx, "SELECT * FROM resolution_types", source="pg")
+    df_resolution_types = extract_data(ctx, "SELECT * FROM resolution_types", source="pg_core")
 
     ### TRANSFORM ###
     # Column "id" is read as an object and not as a string

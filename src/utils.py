@@ -13,7 +13,7 @@ from sqlalchemy import Engine, create_engine, text
 from settings import settings
 
 # List of tables used in multiple functions
-TABLES = [
+CORE_TABLES = [
     "buildings",
     "companies",
     "company_types",
@@ -44,6 +44,24 @@ TABLES = [
     "users",
 ]
 
+# List of tables in the AUAC database
+AUAC_TABLES = [
+    "attachment_types",
+    "procedure_attachments",
+    "procedure_entities",
+    "procedure_entity_requirements",
+    "procedure_notes",
+    "procedure_type_requirement_list_classification_mental",
+    "procedure_type_requirement_list_comp_type_comp_class",
+    "procedure_type_requirement_list_for_physical_structures",
+    "procedure_type_requirement_list_udo_type",
+    "procedures",
+    "requirement_taxonomies",
+    "requirements",
+    "requirement_lists",
+    "requirementlist_requirements",
+]
+
 
 @dataclass
 class ETLContext:
@@ -54,12 +72,15 @@ class ETLContext:
     ----------
     oracle_engine : Engine
         SQLAlchemy engine for Oracle database connection
-    pg_engine : Engine
-        SQLAlchemy engine for PostgreSQL database connection
+    pg_engine_core : Engine
+        SQLAlchemy engine for PostgreSQL A.Re.A. core database connection
+    pg_engine_auac : Engine
+        SQLAlchemy engine for PostgreSQL A.Re.A. Au.Ac. database connection
     """
 
     oracle_engine: Engine
-    pg_engine: Engine
+    pg_engine_core: Engine
+    pg_engine_auac: Engine
 
 
 def setup_logging() -> None:
@@ -89,7 +110,7 @@ def setup_connections() -> ETLContext:
     Initialize database connections for ETL operations.
 
     Sets up an Oracle client and creates database engine connections
-    for both Oracle and PostgreSQL databases.
+    for Oracle and both PostgreSQL databases (core and auac).
 
     Returns
     -------
@@ -98,8 +119,11 @@ def setup_connections() -> ETLContext:
     """
     init_oracle_client(lib_dir=settings.ORACLE_CLIENT_LIB_DIR)
     oracle_engine = create_engine(settings.ORACLE_URI)
-    pg_engine = create_engine(settings.PG_URI)
-    return ETLContext(oracle_engine=oracle_engine, pg_engine=pg_engine)
+    pg_engine_core = create_engine(settings.PG_URI_CORE)
+    pg_engine_auac = create_engine(settings.PG_URI_AUAC)
+    return ETLContext(
+        oracle_engine=oracle_engine, pg_engine_core=pg_engine_core, pg_engine_auac=pg_engine_auac
+    )
 
 
 def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.DataFrame:
@@ -113,14 +137,22 @@ def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.Data
     query : str
         The SQL query to execute
     source : str, optional
-        The source database ('oracle' or 'pg'), by default "oracle"
+        The source database ('oracle', 'pg_core', or 'pg_auac'), by default "oracle"
 
     Returns
     -------
     pl.DataFrame
         A polars DataFrame containing the extracted data
     """
-    engine = ctx.oracle_engine if source == "oracle" else ctx.pg_engine
+    if source == "oracle":
+        engine = ctx.oracle_engine
+    elif source == "pg_core":
+        engine = ctx.pg_engine_core
+    elif source == "pg_auac":
+        engine = ctx.pg_engine_auac
+    else:
+        raise ValueError(f"Invalid source: {source}. Must be 'oracle', 'pg_core', or 'pg_auac'")
+
     df = pl.read_database(query, connection=engine.connect(), infer_schema_length=None)
 
     # Extract the table name from the input query for logging
@@ -173,8 +205,16 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     table_name : str
         The name of the destination table
     """
-    df.write_database(table_name=table_name, connection=ctx.pg_engine, if_table_exists="append")
-    logging.info(f"Loaded {df.height} rows into PostgreSQL table {table_name}")
+    # Determine which database to use based on the table name
+    if table_name in AUAC_TABLES:
+        engine = ctx.pg_engine_auac
+        db_name = "AUAC"
+    else:
+        engine = ctx.pg_engine_core
+        db_name = "CORE"
+
+    df.write_database(table_name=table_name, connection=engine, if_table_exists="append")
+    logging.info(f"Loaded {df.height} rows into PostgreSQL {db_name} database table {table_name}")
 
 
 def truncate_postgresql_table(ctx: ETLContext, table: str) -> None:
@@ -191,8 +231,16 @@ def truncate_postgresql_table(ctx: ETLContext, table: str) -> None:
     table : str
         The name of the table to truncate
     """
-    with ctx.pg_engine.connect() as conn:
-        logging.info(f"Truncating PostgreSQL table {table}...")
+    # Determine which database to use based on the table name
+    if table in AUAC_TABLES:
+        engine = ctx.pg_engine_auac
+        db_name = "AUAC"
+    else:
+        engine = ctx.pg_engine_core
+        db_name = "CORE"
+
+    with engine.connect() as conn:
+        logging.info(f"Truncating PostgreSQL {db_name} database table {table}...")
         conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
         conn.commit()
 
@@ -201,7 +249,7 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
     """
     Truncate all destination tables in PostgreSQL.
 
-    Clears all data from the tables listed in the TABLES constant,
+    Clears all data from the tables listed in the TABLES and AUAC_TABLES constants,
     resetting identity sequences and cascading the truncation.
 
     Parameters
@@ -209,8 +257,16 @@ def truncate_postgresql_tables(ctx: ETLContext) -> None:
     ctx : ETLContext
         The ETL context containing database connections
     """
-    logging.info("Truncating all destination tables in PostgreSQL...")
-    for table in TABLES:
+    logging.info("Truncating all destination tables in PostgreSQL CORE and AUAC databases...")
+
+    # Truncate tables in the CORE database
+    logging.info("Truncating tables in the CORE database...")
+    for table in CORE_TABLES:
+        truncate_postgresql_table(ctx, table)
+
+    # Truncate tables in the AUAC database
+    logging.info("Truncating tables in the AUAC database...")
+    for table in AUAC_TABLES:
         truncate_postgresql_table(ctx, table)
 
 
@@ -232,10 +288,19 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
     logging.info(f"Exporting all tables to CSV in directory: {export_dir}")
 
     # Export each table to CSV
-    for table in TABLES:
+    all_tables = CORE_TABLES + AUAC_TABLES
+    for table in all_tables:
         try:
+            # Determine which database to use based on the table name
+            if table in AUAC_TABLES:
+                engine = ctx.pg_engine_auac
+                db_name = "AUAC"
+            else:
+                engine = ctx.pg_engine_core
+                db_name = "CORE"
+
             # Use SQLAlchemy directly to query the data
-            with ctx.pg_engine.connect() as connection:
+            with engine.connect() as connection:
                 query = text(f"SELECT * FROM {table}")
                 result = connection.execute(query)
 
@@ -246,7 +311,9 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
                 csv_path = export_path / f"{table}.csv"
                 df_pandas.to_csv(csv_path, index=False)
 
-                logging.info(f"Exported {len(df_pandas)} rows from table {table} to {csv_path}")
+                logging.info(
+                    f"Exported {len(df_pandas)} rows from {db_name} database table {table} to {csv_path}"
+                )
         except Exception as e:
             logging.error(f"Error exporting table {table}: {e!s}")
 

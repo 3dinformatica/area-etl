@@ -1,3 +1,5 @@
+\c area_auac_db
+
 -- Sequences
 CREATE SEQUENCE sq_procedures_progressive_code AS integer;
 

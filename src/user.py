@@ -47,7 +47,7 @@ def migrate_users(ctx: ETLContext) -> None:
     ### EXTRACT ###
     df_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
     df_anagrafica_utente_model = extract_data(ctx, "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL")
-    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="postgresql")
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg_core")
 
     ### TRANSFORM ###
     df_anagrafica_utente_model = df_anagrafica_utente_model.select(
@@ -134,7 +134,9 @@ def migrate_permissions(ctx: ETLContext) -> None:
     df = pl.read_csv("seed/permissions.csv")
 
     ### LOAD ###
-    df.write_database(table_name="permissions", connection=ctx.pg_engine, if_table_exists="append")
+    df.write_database(
+        table_name="permissions", connection=ctx.pg_engine_core, if_table_exists="append"
+    )
     logging.info("Loaded seed data into permissions table")
 
 
@@ -220,7 +222,7 @@ def migrate_user_companies(ctx: ETLContext) -> None:
     ### LOAD ###
     df_combined.write_database(
         table_name="user_companies",
-        connection=ctx.pg_engine,
+        connection=ctx.pg_engine_core,
         if_table_exists="append",
     )
 

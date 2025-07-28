@@ -92,7 +92,7 @@ def migrate_companies(ctx: ETLContext) -> None:
     df_titolare_model = extract_data(ctx, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
     df_tipologia_richiedente = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE")
     df_natura_titolare_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL")
-    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg")
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg_core")
 
     ### TRANSFORM ###
     df_tipologia_richiedente_tr = df_tipologia_richiedente.select(
@@ -235,7 +235,7 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_sede_oper_model = extract_data(ctx, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
-    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg")
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg_core")
     df_tipo_punto_fisico_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL")
 
     ### TRANSFORM ###

@@ -818,7 +818,7 @@ def migrate_udos_history(ctx: ETLContext) -> None:
     try:
         df_udos = pl.read_database(
             "SELECT id FROM udos",
-            connection=ctx.pg_engine,
+            connection=ctx.pg_engine_core,
             infer_schema_length=None,
         )
         logging.info("⛏️ Extracted UDO IDs from target database for validation")
