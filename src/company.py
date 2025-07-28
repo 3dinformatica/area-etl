@@ -2,7 +2,7 @@ import json
 
 import polars as pl
 
-from utils import ETLContext, extract_data, handle_timestamps, load_data
+from utils import ETLContext, extract_data, handle_enum_mapping, handle_timestamps, load_data
 
 MUNICIPALITY_MAPPING = {
     "masera' di padova": "maserà di padova",
@@ -32,101 +32,44 @@ MUNICIPALITY_MAPPING = {
 }
 
 
-def map_company_business_form(value: str) -> str | None:
-    """
-    Map company business forms abbreviations to standardized values.
-
-    Parameters
-    ----------
-    value : str
-        The company business form abbreviation to map (e.g., "s.r.l.", "s.p.a.")
-
-    Returns
-    -------
-    str or None
-        The standardized company business form value, or None if no mapping exists
-    """
-    value = value.lower().strip()
-
-    company_form_mapping = {
-        "s.c.": "SOCIETA_SEMPLICE",
-        "s.c.s": "SOCIETA_SEMPLICE",
-        "s.c.s.": "SOCIETA_SEMPLICE",
-        "s.s.": "SOCIETA_SEMPLICE",
-        "s.n.c.": "SOCIETA_IN_NOME_COLLETTIVO",
-        "s.a.s.": "SOCIETA_IN_ACCOMANDITA_SEMPLICE",
-        "s.r.l.": "SOCIETA_A_RESPONSABILITA_LIMITATA",
-        "s.r.l.s.": "SOCIETA_A_RESPONSABILITA_LIMITATA_SEMPLIFICATA",
-        "s.p.a.": "SOCIETA_PER_AZIONI",
-        "s.p.a": "SOCIETA_PER_AZIONI",
-        "s.a.p.a.": "SOCIETA_IN_ACCOMANDITA_PER_AZIONI",
-        "comunita' montana": "SOCIETA_IN_ACCOMANDITA_PER_AZIONI",
-        "consorzio": "CONSORZIO",
-        "societa' cooperativa": "SOCIETA_COOPERATIVA",
-    }
-
-    return company_form_mapping.get(value)
+COMPANY_BUSINESS_FORM_MAPPING = {
+    "s.c.": "SOCIETA_SEMPLICE",
+    "s.c.s": "SOCIETA_SEMPLICE",
+    "s.c.s.": "SOCIETA_SEMPLICE",
+    "s.s.": "SOCIETA_SEMPLICE",
+    "s.n.c.": "SOCIETA_IN_NOME_COLLETTIVO",
+    "s.a.s.": "SOCIETA_IN_ACCOMANDITA_SEMPLICE",
+    "s.r.l.": "SOCIETA_A_RESPONSABILITA_LIMITATA",
+    "s.r.l.s.": "SOCIETA_A_RESPONSABILITA_LIMITATA_SEMPLIFICATA",
+    "s.p.a.": "SOCIETA_PER_AZIONI",
+    "s.p.a": "SOCIETA_PER_AZIONI",
+    "s.a.p.a.": "SOCIETA_IN_ACCOMANDITA_PER_AZIONI",
+    "comunita' montana": "SOCIETA_IN_ACCOMANDITA_PER_AZIONI",
+    "consorzio": "CONSORZIO",
+    "societa' cooperativa": "SOCIETA_COOPERATIVA",
+}
 
 
-def map_company_nature(value: str | None) -> str:
-    """
-    Map company nature descriptions to standardized values.
-
-    Parameters
-    ----------
-    value : str or None
-        The company nature description to map
-
-    Returns
-    -------
-    str
-        The standardized company nature value. Defaults to "PRIVATO" if no mapping exists
-    """
-    if value is None:
-        return "PRIVATO"
-
-    value = value.lower().strip()
-    if value.startswith("pub"):
-        return "PUBBLICO"
-    elif value.startswith("pri"):
-        return "PRIVATO"
-    elif value.startswith("azi"):
-        return "AZIENDA_SANITARIA"
-    else:
-        return "PRIVATO"
+COMPANY_NATURE_MAPPING = {
+    "pub": "PUBBLICO",
+    "pri": "PRIVATO",
+    "azsan": "AZIENDA_SANITARIA",
+}
 
 
-def map_company_legal_form(value: str) -> str | None:
-    """
-    Map company legal form descriptions to standardized values.
-
-    Parameters
-    ----------
-    value : str
-        The company legal form description to map
-
-    Returns
-    -------
-    str or None
-        The standardized company legal form value, or None if no mapping exists
-    """
-    value = value.lower().strip()
-
-    legal_form_mapping = {
-        "società": "SOCIETA",
-        "societa'": "SOCIETA",
-        "impresa individuale": "IMPRESA_INDIVIDUALE",
-        "consorzio": "CONSORZIO",
-        "studio professionale": "STUDIO_PROFESSIONALE",
-        "ente pubblico": "ENTE_PUBBLICO",
-        "ente morale di diritto privato": "ENTE_MORALE_DI_DIRITTO_PRIVATO",
-        "associazione": "ASSOCIAZIONE",
-        "associazione temporanea di impresa": "ASSOCIAZIONE_TEMPORANEA_DI_IMPRESA",
-        "ente ecclesiastico civilmente riconosciuto": "ENTE_ECCLESIASTICO_CIVILMENTE_RICONOSCIUTO",
-        "fondazione": "FONDAZIONE",
-    }
-
-    return legal_form_mapping.get(value)
+COMPANY_LEGAL_FORM_MAPPING = {
+    "società": "SOCIETA",
+    "societa'": "SOCIETA",
+    "impresa individuale": "IMPRESA_INDIVIDUALE",
+    "consorzio": "CONSORZIO",
+    "studio professionale": "STUDIO_PROFESSIONALE",
+    "ente pubblico": "ENTE_PUBBLICO",
+    "ente morale di diritto privato": "ENTE_MORALE_DI_DIRITTO_PRIVATO",
+    "associazione": "ASSOCIAZIONE",
+    "associazione temporanea di impresa": "ASSOCIAZIONE_TEMPORANEA_DI_IMPRESA",
+    "ente ecclesiastico civilmente riconosciuto": "ENTE_ECCLESIASTICO_CIVILMENTE_RICONOSCIUTO",
+    "fondazione": "FONDAZIONE",
+}
 
 
 def normalize_municipality_name(name: str) -> str:
@@ -162,7 +105,6 @@ def migrate_company_types(ctx: ETLContext) -> None:
     df_company_types = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL")
 
     ### TRANSFORM ###
-    # Get timestamp expressions
     timestamp_exprs = handle_timestamps()
 
     df_result = df_company_types.select(
@@ -196,41 +138,37 @@ def migrate_companies(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_titolare_model = extract_data(ctx, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
+    df_tipologia_richiedente = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE")
+    df_natura_titolare_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL")
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg")
 
-    df_tipologia_richiedente = extract_data(
-        ctx, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE"
-    ).select(
-        pl.col("CLIENTID").alias("ID_TIPO_RICH_FK"),
-        pl.col("DESCR").alias("legal_form"),
+    ### TRANSFORM ###
+    df_tipologia_richiedente_tr = df_tipologia_richiedente.select(
+        pl.col("CLIENTID"),
+        pl.col("DESCR").str.strip_chars().str.to_lowercase().alias("legal_form"),
     )
-
-    df_natura_titolare_templ = extract_data(
-        ctx, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
-    ).select(
-        pl.col("CLIENTID").alias("ID_NATURA_FK"),
-        pl.col("DESCR").alias("nature"),
+    df_natura_titolare_templ_tr = df_natura_titolare_templ.select(
+        pl.col("CLIENTID"),
+        pl.col("NOME").str.strip_chars().str.to_lowercase().alias("nature"),
     )
-
-    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg").select(
+    df_municipalities_tr = df_municipalities.select(
         pl.col("id").alias("municipality_id"),
         pl.col("istat_code"),
     )
-
-    ### TRANSFORM ###
     df_result = df_titolare_model.join(
-        df_tipologia_richiedente,
+        df_tipologia_richiedente_tr,
         left_on="ID_TIPO_RICH_FK",
-        right_on="ID_TIPO_RICH_FK",
+        right_on="CLIENTID",
         how="left",
     )
     df_result = df_result.join(
-        df_natura_titolare_templ,
+        df_natura_titolare_templ_tr,
         left_on="ID_NATURA_FK",
-        right_on="ID_NATURA_FK",
+        right_on="CLIENTID",
         how="left",
     )
     df_result = df_result.join(
-        df_municipalities,
+        df_municipalities_tr,
         left_on="COD_COMUNE_ESTESO",
         right_on="istat_code",
         how="left",
@@ -243,20 +181,22 @@ def migrate_companies(ctx: ETLContext) -> None:
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
         pl.col("CODICEUNIVOCO").str.strip_chars().alias("code"),
         pl.col("RAG_SOC").str.strip_chars().alias("business_name"),
-        pl.col("FORMA_SOCIETARIA")
-        .str.to_lowercase()
-        .str.strip_chars()
-        .alias("business_form")
-        .map_elements(map_company_business_form, return_dtype=pl.String),
-        pl.col("legal_form")
-        .str.to_lowercase()
-        .str.strip_chars()
-        .map_elements(map_company_legal_form, return_dtype=pl.String),
-        pl.col("nature")
-        .str.to_lowercase()
-        .str.strip_chars()
-        .map_elements(map_company_nature, return_dtype=pl.String)
-        .fill_null("PRIVATO"),
+        handle_enum_mapping(
+            source_col="FORMA_SOCIETARIA",
+            target_col="business_form",
+            mapping_dict=COMPANY_BUSINESS_FORM_MAPPING,
+        ),
+        handle_enum_mapping(
+            source_col="legal_form",
+            target_col="legal_form",
+            mapping_dict=COMPANY_LEGAL_FORM_MAPPING,
+        ),
+        handle_enum_mapping(
+            source_col="nature",
+            target_col="nature",
+            mapping_dict=COMPANY_NATURE_MAPPING,
+            default="PRIVATO",
+        ).fill_null("PRIVATO"),
         pl.col("CFISC").str.strip_chars().alias("tax_code"),
         pl.col("PIVA").str.strip_chars().alias("vat_number"),
         pl.col("EMAIL").str.strip_chars().alias("email"),
@@ -270,9 +210,9 @@ def migrate_companies(ctx: ETLContext) -> None:
         pl.col("municipality_id"),
         pl.col("ID_TIPO_FK").str.strip_chars().alias("company_type_id"),
         pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###

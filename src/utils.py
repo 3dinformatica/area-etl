@@ -439,6 +439,65 @@ def handle_id(source_id_col: str = "CLIENTID", target_id_col: str = "id") -> pl.
     )
 
 
+def map_value(value: str | None, mapping: dict[str, str], default: str | None = None) -> str | None:
+    """
+    Map values using a dictionary.
+
+    Parameters
+    ----------
+    value : str or None
+        The value to map
+    mapping : dict[str, str]
+        Dictionary containing the mapping from input values to standardized values
+    default : str or None, optional
+        Default value to return if no mapping exists. If None, returns None.
+
+    Returns
+    -------
+    str or None
+        The mapped value, or default if no mapping exists
+    """
+    if value is None:
+        return default
+
+    value = value.strip().lower()
+    return mapping.get(value, default)
+
+
+def handle_enum_mapping(
+    source_col: str, target_col: str, mapping_dict: dict, default: str | None = None
+) -> pl.Expr:
+    """
+    Map values from a source column to standardized values using a mapping dictionary.
+
+    This function applies string transformations (strip and lowercase) before mapping
+    and returns a polars expression that can be used in a select statement.
+
+    Parameters
+    ----------
+    source_col : str
+        The name of the source column containing values to be mapped
+    target_col : str
+        The name to give to the resulting column
+    mapping_dict : dict
+        Dictionary containing the mapping from input values to standardized values
+    default : str or None, optional
+        Default value to return if no mapping exists. If None, returns None.
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return (
+        pl.col(source_col)
+        .str.strip_chars()
+        .str.to_lowercase()
+        .map_elements(lambda x: map_value(x, mapping_dict, default=default), return_dtype=pl.String)
+        .alias(target_col)
+    )
+
+
 def format_elapsed_time(start_time: datetime) -> str:
     """
     Calculate and format the elapsed time since start_time.
