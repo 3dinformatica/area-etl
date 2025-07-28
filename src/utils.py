@@ -409,6 +409,36 @@ def handle_timestamps(
     }
 
 
+def handle_id(source_id_col: str = "CLIENTID", target_id_col: str = "id") -> pl.Expr:
+    """
+    Handle the ID field transformation.
+
+    This function applies the standard transformation for ID fields:
+    - Strips leading and trailing whitespaces from the ID
+    - Converts the ID to lowercase
+    - Aliases the result as "id"
+
+    Parameters
+    ----------
+    source_id_col : str, optional
+        The name of the ID column of the source table, by default "CLIENTID"
+    target_id_col : str, optional
+        The name of the ID column of the target table, by default "id"
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return (
+        pl.col(source_id_col)
+        .cast(pl.String)
+        .str.strip_chars()
+        .str.to_lowercase()
+        .alias(target_id_col)
+    )
+
+
 def format_elapsed_time(start_time: datetime) -> str:
     """
     Calculate and format the elapsed time since start_time.
