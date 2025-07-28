@@ -47,7 +47,7 @@ def migrate_municipalities(ctx: ETLContext) -> None:
     ### EXTRACT ###
     schema_overrides = {"istat_code": pl.String}
     df_municipalities = extract_data_from_csv(
-        "seed/municipalities.csv", schema_overrides=schema_overrides
+        "seed/municipalities_new.csv", schema_overrides=schema_overrides
     )
 
     ### LOAD ###
