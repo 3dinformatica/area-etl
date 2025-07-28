@@ -4,34 +4,6 @@ import polars as pl
 
 from utils import ETLContext, extract_data, handle_enum_mapping, handle_timestamps, load_data
 
-MUNICIPALITY_MAPPING = {
-    "masera' di padova": "maserà di padova",
-    "dolce'": "dolcè",
-    "codogne'": "codognè",
-    "arsie'": "arsiè",
-    "arqua' polesine": "arquà polesine",
-    "arqua' petrarca": "arquà petrarca",
-    "carre'": "carrè",
-    "mansu'": "mansuè",
-    "erbe'": "erbè",
-    "fosso'": "fossò",
-    "palu'": "palù",
-    "ponte san nicolo'": "ponte san nicolò",
-    "portobuffole'": "portobuffolè",
-    "ronca'": "roncà",
-    "rosa'": "rosà",
-    "roveredo di gua'": "roveredo di guà",
-    "rovere' veronese": "roverè veronese",
-    "san dona' di piave": "san donà di piave",
-    "san nicolo' di comelico": "san nicolò di comelico",
-    "scorze'": "scorzè",
-    "sorga'": "sorgà",
-    "zane'": "zanè",
-    "zoppe' di cadore": "zoppè di cadore",
-    "mansue'": "mansué",
-}
-
-
 COMPANY_BUSINESS_FORM_MAPPING = {
     "s.c.": "SOCIETA_SEMPLICE",
     "s.c.s": "SOCIETA_SEMPLICE",
@@ -70,26 +42,6 @@ COMPANY_LEGAL_FORM_MAPPING = {
     "ente ecclesiastico civilmente riconosciuto": "ENTE_ECCLESIASTICO_CIVILMENTE_RICONOSCIUTO",
     "fondazione": "FONDAZIONE",
 }
-
-
-def normalize_municipality_name(name: str) -> str:
-    """
-    Normalize municipality name according to mapping rules.
-
-    Parameters
-    ----------
-    name : str
-        The municipality name to normalize
-
-    Returns
-    -------
-    str
-        The normalized municipality name
-    """
-    if not name:
-        return name
-    name_lower = name.lower()
-    return MUNICIPALITY_MAPPING.get(name_lower, name_lower)
 
 
 def migrate_company_types(ctx: ETLContext) -> None:
@@ -283,75 +235,53 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_sede_oper_model = extract_data(ctx, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
+    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg")
+    df_tipo_punto_fisico_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL")
 
-    df_municipalities = extract_data(ctx, "SELECT * FROM municipalities", source="pg").select(
-        pl.col("id"),
-        pl.col("name").str.to_lowercase().alias("municipality_name"),
+    ### TRANSFORM ###
+    df_municipalities_tr = df_municipalities.select(
+        pl.col("id").alias("municipality_id"),
+        pl.col("istat_code"),
     )
-
-    df_tipo_punto_fisico_templ = extract_data(
-        ctx, "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"
-    ).select(
+    df_tipo_punto_fisico_templ_tr = df_tipo_punto_fisico_templ.select(
         pl.col("CLIENTID"),
         pl.col("NOME"),
     )
-
-    ### TRANSFORM ###
-    df_sede_oper_model = df_sede_oper_model.with_columns(
-        [
-            pl.col("COMUNE")
-            .str.to_lowercase()
-            .map_elements(normalize_municipality_name, return_dtype=pl.String)
-            .alias("normalized_comune"),
-        ]
+    df_result = df_sede_oper_model.join(
+        df_municipalities_tr,
+        left_on="ISTAT",
+        right_on="istat_code",
+        how="left",
     )
-    df_with_point_type = df_sede_oper_model.join(
-        df_tipo_punto_fisico_templ,
+    df_result = df_result.join(
+        df_tipo_punto_fisico_templ_tr,
         left_on="ID_TIPO_PUNTO_FISICO_FK",
         right_on="CLIENTID",
         how="left",
     )
-    df_with_municipality = df_with_point_type.join(
-        df_municipalities,
-        left_on="normalized_comune",
-        right_on="municipality_name",
-        how="left",
-    )
+
     timestamp_exprs = handle_timestamps()
 
-    df_result = df_with_municipality.select(
-        [
-            # ID and name
-            pl.col("CLIENTID").str.strip_chars().alias("id"),
-            pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
-            # Structure data
-            pl.col("ID_STRUTTURA_FK").str.strip_chars().alias("physical_structure_id"),
-            # Address data
-            pl.col("VIA_PIAZZA").str.strip_chars().alias("street_name"),
-            pl.col("CIVICO").str.strip_chars().alias("street_number"),
-            pl.col("CAP").alias("zip_code"),
-            # Main address flag
-            pl.when(pl.col("FLAG_INDIRIZZO_PRINCIPALE") == "S")
-            .then(True)
-            .otherwise(False)
-            .alias("is_main_address"),
-            # Physical point type
-            pl.col("NOME").alias("physical_point_type"),
-            # Coordinates
-            pl.col("LATITUDINE").cast(pl.Float64).alias("lat"),
-            pl.col("LONGITUDINE").cast(pl.Float64).alias("lon"),
-            # Reference IDs
-            pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
-            pl.col("id").alias("municipality_id"),
-            # Get timestamp expressions for the original DataFrame
-            timestamp_exprs["created_at"],
-            timestamp_exprs["updated_at"],
-            timestamp_exprs["disabled_at"],
-        ]
+    df_result = df_result.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
+        pl.col("ID_STRUTTURA_FK").str.strip_chars().alias("physical_structure_id"),
+        pl.col("VIA_PIAZZA").str.strip_chars().alias("street_name"),
+        pl.col("CIVICO").str.strip_chars().alias("street_number"),
+        pl.col("CAP").alias("zip_code"),
+        pl.when(pl.col("FLAG_INDIRIZZO_PRINCIPALE") == "S")
+        .then(True)
+        .otherwise(False)
+        .alias("is_main_address"),
+        pl.col("NOME").alias("physical_point_type"),
+        pl.col("LATITUDINE").cast(pl.Float64).alias("lat"),
+        pl.col("LONGITUDINE").cast(pl.Float64).alias("lon"),
+        pl.col("ID_TOPONIMO_FK").str.strip_chars().alias("toponym_id"),
+        pl.col("municipality_id"),
+        timestamp_exprs["disabled_at"],
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
     )
-
-    # Remove duplicates keeping the first record for each ID
-    df_result = df_result.unique(subset=["id"], keep="first")
 
     ### LOAD ###
     load_data(ctx, df_result, "operational_offices")
