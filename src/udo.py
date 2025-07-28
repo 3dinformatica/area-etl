@@ -2,7 +2,6 @@ import logging
 
 import polars as pl
 
-from settings import settings
 from utils import ETLContext, extract_data, handle_timestamps, load_data
 
 

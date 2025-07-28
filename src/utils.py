@@ -173,9 +173,7 @@ def load_data(ctx: ETLContext, df: pl.DataFrame, table_name: str) -> None:
     table_name : str
         The name of the destination table
     """
-    df.write_database(
-        table_name=table_name, connection=ctx.pg_engine, if_table_exists="append"
-    )
+    df.write_database(table_name=table_name, connection=ctx.pg_engine, if_table_exists="append")
     logging.info(f"Loaded {df.height} rows into PostgreSQL table {table_name}")
 
 
@@ -248,9 +246,7 @@ def export_tables_to_csv(ctx: ETLContext, export_dir: str = "export") -> None:
                 csv_path = export_path / f"{table}.csv"
                 df_pandas.to_csv(csv_path, index=False)
 
-                logging.info(
-                    f"Exported {len(df_pandas)} rows from table {table} to {csv_path}"
-                )
+                logging.info(f"Exported {len(df_pandas)} rows from table {table} to {csv_path}")
         except Exception as e:
             logging.error(f"Error exporting table {table}: {e!s}")
 
