@@ -164,3 +164,4 @@ cython_debug/
 
 # Custom
 export/
+minio_data/

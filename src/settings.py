@@ -8,7 +8,7 @@ def find_env_file() -> str:
     current_dir = Path.cwd()
     env_file = current_dir / ".env"
 
-    # Check current directory
+    # Check the current directory
     if env_file.exists():
         return str(env_file)
 
@@ -19,7 +19,7 @@ def find_env_file() -> str:
         if env_file.exists():
             return str(env_file)
 
-    # Return default path if not found
+    # Return the default path if not found
     return ".env"
 
 
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     ORACLE_CLIENT_LIB_DIR: str = "/path/to/instantclient"
     ORACLE_URI: str = "oracle://username:password@hostname:1521/service_name"
-    PG_URI: str = "postgresql://username:password@localhost:5432/database_name"
+    PG_URI: str = "postgresql://username:password@hostname:5432/database_name"
     PG_TABLE_PREFIX: str = ""
     ATTACHMENTS_DIR: str = "attachments"
 
