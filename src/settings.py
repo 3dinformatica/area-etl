@@ -40,9 +40,13 @@ class Settings(BaseSettings):
     ORACLE_URI_POA: str
         Connection string for Oracle database for POA A.Re.A. services
     PG_URI_CORE: str
-        Connection string for PostgreSQL A.Re.A. core database
+        Connection string for PostgreSQL A.Re.A. Core service database
+    PG_URI_POA: str
+        Connection string for PostgreSQL A.Re.A. POA service database
+    PG_URI_CRONOS: str
+        Connection string for PostgreSQL A.Re.A. Cronos service database
     PG_URI_AUAC: str
-        Connection string for PostgreSQL A.Re.A. Au.Ac. database
+        Connection string for PostgreSQL A.Re.A. Au.Ac. service database
     MINIO_ENDPOINT: str
         Endpoint URL for MinIO object storage
     MINIO_ACCESS_KEY: str
@@ -57,6 +61,8 @@ class Settings(BaseSettings):
     ORACLE_URI_AREA: str = "oracle://username:password@hostname:1521/service_name_area"
     ORACLE_URI_POA: str = "oracle://username:password@hostname:1521/service_name_poa"
     PG_URI_CORE: str = "postgresql://username:password@hostname:5432/area_core_db"
+    PG_URI_POA: str = "postgresql://username:password@hostname:5432/area_poa_db"
+    PG_URI_CRONOS: str = "postgresql://username:password@hostname:5432/area_cronos_db"
     PG_URI_AUAC: str = "postgresql://username:password@hostname:5432/area_auac_db"
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"

@@ -76,14 +76,20 @@ class ETLContext:
     oracle_engine_poa : Engine
         SQLAlchemy engine for Oracle database connection for POA A.Re.A. services
     pg_engine_core : Engine
-        SQLAlchemy engine for PostgreSQL A.Re.A. core database connection
+        SQLAlchemy engine for PostgreSQL A.Re.A. Core service database connection
+    pg_engine_poa : Engine
+        SQLAlchemy engine for PostgreSQL A.Re.A. POA service database connection
+    pg_engine_cronos : Engine
+        SQLAlchemy engine for PostgreSQL A.Re.A. Cronos service database connection
     pg_engine_auac : Engine
-        SQLAlchemy engine for PostgreSQL A.Re.A. Au.Ac. database connection
+        SQLAlchemy engine for PostgreSQL A.Re.A. Au.Ac. service database connection
     """
 
     oracle_engine_area: Engine
     oracle_engine_poa: Engine
     pg_engine_core: Engine
+    pg_engine_poa: Engine
+    pg_engine_cronos: Engine
     pg_engine_auac: Engine
 
 
@@ -114,12 +120,14 @@ def setup_connections() -> ETLContext:
     Initialize database connections for ETL operations.
 
     Sets up an Oracle client and creates database engine connections
-    for two Oracle databases (area and poa) and two PostgreSQL databases (core and auac).
+    for two Oracle databases (area and poa) and all the PostgreSQL databases of the services.
 
     - oracle_engine_area: Connection to the main A.Re.A. services Oracle database
     - oracle_engine_poa: Connection to the POA A.Re.A. services Oracle database
-    - pg_engine_core: Connection to the A.Re.A. core PostgreSQL database
-    - pg_engine_auac: Connection to the A.Re.A. Au.Ac. PostgreSQL database
+    - pg_engine_core: Connection to the A.Re.A. Core service PostgreSQL database
+    - pg_engine_poa: Connection to the A.Re.A. POA service PostgreSQL database
+    - pg_engine_cronos: Connection to the A.Re.A. Cronos service PostgreSQL database
+    - pg_engine_auac: Connection to the A.Re.A. Au.Ac. service PostgreSQL database
 
     Returns
     -------
@@ -130,11 +138,15 @@ def setup_connections() -> ETLContext:
     oracle_engine_area = create_engine(settings.ORACLE_URI_AREA)
     oracle_engine_poa = create_engine(settings.ORACLE_URI_POA)
     pg_engine_core = create_engine(settings.PG_URI_CORE)
+    pg_engine_poa = create_engine(settings.PG_URI_POA)
+    pg_engine_cronos = create_engine(settings.PG_URI_CRONOS)
     pg_engine_auac = create_engine(settings.PG_URI_AUAC)
     return ETLContext(
         oracle_engine_area=oracle_engine_area,
         oracle_engine_poa=oracle_engine_poa,
         pg_engine_core=pg_engine_core,
+        pg_engine_poa=pg_engine_poa,
+        pg_engine_cronos=pg_engine_cronos,
         pg_engine_auac=pg_engine_auac,
     )
 
@@ -142,7 +154,9 @@ def setup_connections() -> ETLContext:
 def extract_data(
     ctx: ETLContext,
     query: str,
-    source: Literal["oracle_area", "oracle_poa", "pg_core", "pg_auac"] = "oracle_area",
+    source: Literal[
+        "oracle_area", "oracle_poa", "pg_core", "pg_poa", "pg_cronos", "pg_auac"
+    ] = "oracle_area",
 ) -> pl.DataFrame:
     """
     Extract data from a database and log the extraction.
@@ -154,7 +168,7 @@ def extract_data(
     query : str
         The SQL query to execute
     source : str, optional
-        The source database ('oracle_area', 'oracle_poa', 'pg_core', or 'pg_auac'),
+        The source database ('oracle_area', 'oracle_poa', 'pg_core', 'pg_poa', 'pg_cronos' or 'pg_auac'),
         by default "oracle_area"
 
     Returns
@@ -168,11 +182,15 @@ def extract_data(
         engine = ctx.oracle_engine_poa
     elif source == "pg_core":
         engine = ctx.pg_engine_core
+    elif source == "pg_poa":
+        engine = ctx.pg_engine_poa
+    elif source == "pg_cronos":
+        engine = ctx.pg_engine_cronos
     elif source == "pg_auac":
         engine = ctx.pg_engine_auac
     else:
         raise ValueError(
-            f"Invalid source: {source}. Must be 'oracle_area', 'oracle_poa', 'pg_core', or 'pg_auac'"
+            f"Invalid source: {source}. Must be 'oracle_area', 'oracle_poa', 'pg_core', 'pg_poa', 'pg_cronos' or 'pg_auac'"
         )
 
     df = pl.read_database(query, connection=engine.connect(), infer_schema_length=None)

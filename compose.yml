@@ -10,7 +10,9 @@ services:
     volumes:
       - ./sql/init_db.sql:/docker-entrypoint-initdb.d/00_init_db.sql
       - ./sql/init_core.sql:/docker-entrypoint-initdb.d/01_init_core.sql
-      - ./sql/init_auac.sql:/docker-entrypoint-initdb.d/02_init_auac.sql
+      - ./sql/init_poa.sql:/docker-entrypoint-initdb.d/02_init_poa.sql
+      - ./sql/init_cronos.sql:/docker-entrypoint-initdb.d/03_init_cronos.sql
+      - ./sql/init_auac.sql:/docker-entrypoint-initdb.d/04_init_auac.sql
 
   area-etl-minio:
     container_name: area-etl-minio
