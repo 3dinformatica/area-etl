@@ -28,3 +28,18 @@ def truncate_cronos_tables(ctx: ETLContext) -> None:
 
     for table in CRONOS_TABLES:
         truncate_pg_table(ctx.pg_engine_cronos, table)
+
+
+def migrate_cronos(ctx: ETLContext) -> None:
+    """
+    Migrate data from source databases to the Cronos service database.
+
+    This function orchestrates the ETL process for the Cronos service,
+    currently only truncating all target tables.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    truncate_cronos_tables(ctx)

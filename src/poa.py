@@ -35,3 +35,18 @@ def truncate_poa_tables(ctx: ETLContext) -> None:
 
     for table in POA_TABLES:
         truncate_pg_table(ctx.pg_engine_poa, table)
+
+
+def migrate_poa(ctx: ETLContext) -> None:
+    """
+    Migrate data from source databases to the POA service database.
+
+    This function orchestrates the ETL process for the POA service,
+    currently only truncating all target tables.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    truncate_poa_tables(ctx)

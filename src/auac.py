@@ -1,9 +1,42 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 
 import polars as pl
 
-from utils import ETLContext, extract_data, handle_timestamps, load_data
+from utils import ETLContext, extract_data, handle_timestamps, load_data, truncate_pg_table
+
+AUAC_TABLES = [
+    "attachment_types",
+    "procedure_attachments",
+    "procedure_entities",
+    "procedure_entity_requirements",
+    "procedure_notes",
+    "procedure_type_requirement_list_classification_mental",
+    "procedure_type_requirement_list_comp_type_comp_class",
+    "procedure_type_requirement_list_for_physical_structures",
+    "procedure_type_requirement_list_udo_type",
+    "procedures",
+    "requirement_taxonomies",
+    "requirements",
+    "requirement_lists",
+    "requirementlist_requirements",
+]
+
+
+def truncate_auac_tables(ctx: ETLContext) -> None:
+    """
+    Truncate all the tables in the PostgreSQL database of A.Re.A. Au.Ac. service.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    logging.info(f'Truncating all target tables in PostgreSQL {ctx.pg_engine_auac}..."')
+
+    for table in AUAC_TABLES:
+        truncate_pg_table(ctx.pg_engine_core, table)
 
 
 def migrate_requirement_taxonomies(ctx: ETLContext) -> None:
@@ -20,9 +53,11 @@ def migrate_requirement_taxonomies(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_tipo_requisito = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_REQUISITO")
+    df_tipo_requisito = extract_data(
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_REQUISITO"
+    )
     df_tipo_specifico_requisito = extract_data(
-        ctx, "SELECT * FROM AUAC_USR.TIPO_SPECIFICO_REQUISITO"
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_SPECIFICO_REQUISITO"
     )
 
     ### TRANSFORM ###
@@ -67,7 +102,7 @@ def migrate_requirement_taxonomies(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    load_data(ctx, df_result, "requirement_taxonomies")
+    load_data(ctx.pg_engine_auac, df_result, "requirement_taxonomies")
 
 
 def migrate_requirement_lists(ctx: ETLContext) -> None:
@@ -83,7 +118,9 @@ def migrate_requirement_lists(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_lista_requisiti_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.LISTA_REQUISITI_TEMPL")
+    df_lista_requisiti_templ = extract_data(
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.LISTA_REQUISITI_TEMPL"
+    )
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -98,7 +135,7 @@ def migrate_requirement_lists(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    load_data(ctx, df_result, "requirement_lists")
+    load_data(ctx.pg_engine_auac, df_result, "requirement_lists")
 
 
 def migrate_requirements(ctx: ETLContext) -> None:
@@ -115,10 +152,12 @@ def migrate_requirements(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_requisito_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.REQUISITO_TEMPL")
-    df_tipo_risposta = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_RISPOSTA")
+    df_requisito_templ = extract_data(
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.REQUISITO_TEMPL"
+    )
+    df_tipo_risposta = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_RISPOSTA")
     df_requirement_taxonomies = extract_data(
-        ctx, "SELECT * FROM requirement_taxonomies", source="pg_auac"
+        ctx.pg_engine_auac, "SELECT * FROM requirement_taxonomies"
     )
 
     ### TRANSFORM ###
@@ -176,7 +215,7 @@ def migrate_requirements(ctx: ETLContext) -> None:
     df_result = df_result.drop("ID_TIPO_RISPOSTA_FK")
 
     ### LOAD ###
-    load_data(ctx, df_result, "requirements")
+    load_data(ctx.pg_engine_auac, df_result, "requirements")
 
 
 def migrate_procedures(ctx: ETLContext) -> None:
@@ -192,8 +231,10 @@ def migrate_procedures(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_domanda_inst = extract_data(ctx, "SELECT * FROM AUAC_USR.DOMANDA_INST")
-    df_tipo_proc_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL")
+    df_domanda_inst = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DOMANDA_INST")
+    df_tipo_proc_templ = extract_data(
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL"
+    )
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps(disabled_col="STATO", disabled_value="CESTINATA")
@@ -233,4 +274,27 @@ def migrate_procedures(ctx: ETLContext) -> None:
     )
 
     ### LOAD ###
-    load_data(ctx, df_result, "procedures")
+    load_data(ctx.pg_engine_auac, df_result, "procedures")
+
+
+### ALL ###
+
+
+def migrate_auac(ctx: ETLContext) -> None:
+    """
+    Migrate data from source databases to the AUAC service database.
+
+    This function orchestrates the complete ETL process for the AUAC service,
+    first truncating all target tables and then migrating each entity type
+    in the correct sequence.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    truncate_auac_tables(ctx)
+    migrate_requirement_taxonomies(ctx)
+    migrate_requirement_lists(ctx)
+    migrate_requirements(ctx)
+    migrate_procedures(ctx)
