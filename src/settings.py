@@ -35,16 +35,27 @@ class Settings(BaseSettings):
     ----------
     ORACLE_CLIENT_LIB_DIR: str
         Path to Oracle Instant Client directory
-    ORACLE_URI: str
-        Connection string for Oracle database
-    PG_URI: str
-        Connection string for PostgreSQL database
+    ORACLE_URI_AREA: str
+        Connection string for Oracle database for main A.Re.A. services
+    ORACLE_URI_POA: str
+        Connection string for Oracle database for POA A.Re.A. services
+    PG_URI_CORE: str
+        Connection string for PostgreSQL A.Re.A. core database
+    PG_URI_AUAC: str
+        Connection string for PostgreSQL A.Re.A. Au.Ac. database
+    MINIO_ENDPOINT: str
+        Endpoint URL for MinIO object storage
+    MINIO_ACCESS_KEY: str
+        Access key for MinIO object storage
+    MINIO_SECRET_KEY: str
+        Secret key for MinIO object storage
     ATTACHMENTS_DIR: str
         Directory for storing attachments
     """
 
     ORACLE_CLIENT_LIB_DIR: str = "/path/to/instantclient"
-    ORACLE_URI: str = "oracle://username:password@hostname:1521/service_name"
+    ORACLE_URI_AREA: str = "oracle://username:password@hostname:1521/service_name_area"
+    ORACLE_URI_POA: str = "oracle://username:password@hostname:1521/service_name_poa"
     PG_URI_CORE: str = "postgresql://username:password@hostname:5432/area_core_db"
     PG_URI_AUAC: str = "postgresql://username:password@hostname:5432/area_auac_db"
     MINIO_ENDPOINT: str = "localhost:9000"

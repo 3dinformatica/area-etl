@@ -70,15 +70,18 @@ class ETLContext:
 
     Attributes
     ----------
-    oracle_engine : Engine
-        SQLAlchemy engine for Oracle database connection
+    oracle_engine_area : Engine
+        SQLAlchemy engine for Oracle database connection for main A.Re.A. services
+    oracle_engine_poa : Engine
+        SQLAlchemy engine for Oracle database connection for POA A.Re.A. services
     pg_engine_core : Engine
         SQLAlchemy engine for PostgreSQL A.Re.A. core database connection
     pg_engine_auac : Engine
         SQLAlchemy engine for PostgreSQL A.Re.A. Au.Ac. database connection
     """
 
-    oracle_engine: Engine
+    oracle_engine_area: Engine
+    oracle_engine_poa: Engine
     pg_engine_core: Engine
     pg_engine_auac: Engine
 
@@ -110,23 +113,32 @@ def setup_connections() -> ETLContext:
     Initialize database connections for ETL operations.
 
     Sets up an Oracle client and creates database engine connections
-    for Oracle and both PostgreSQL databases (core and auac).
+    for two Oracle databases (area and poa) and two PostgreSQL databases (core and auac).
+
+    - oracle_engine_area: Connection to the main A.Re.A. services Oracle database
+    - oracle_engine_poa: Connection to the POA A.Re.A. services Oracle database
+    - pg_engine_core: Connection to the A.Re.A. core PostgreSQL database
+    - pg_engine_auac: Connection to the A.Re.A. Au.Ac. PostgreSQL database
 
     Returns
     -------
     ETLContext
-        Context object containing database connections
+        Context object containing all database connections
     """
     init_oracle_client(lib_dir=settings.ORACLE_CLIENT_LIB_DIR)
-    oracle_engine = create_engine(settings.ORACLE_URI)
+    oracle_engine_area = create_engine(settings.ORACLE_URI_AREA)
+    oracle_engine_poa = create_engine(settings.ORACLE_URI_POA)
     pg_engine_core = create_engine(settings.PG_URI_CORE)
     pg_engine_auac = create_engine(settings.PG_URI_AUAC)
     return ETLContext(
-        oracle_engine=oracle_engine, pg_engine_core=pg_engine_core, pg_engine_auac=pg_engine_auac
+        oracle_engine_area=oracle_engine_area,
+        oracle_engine_poa=oracle_engine_poa,
+        pg_engine_core=pg_engine_core,
+        pg_engine_auac=pg_engine_auac,
     )
 
 
-def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.DataFrame:
+def extract_data(ctx: ETLContext, query: str, source: str = "oracle_area") -> pl.DataFrame:
     """
     Extract data from a database and log the extraction.
 
@@ -137,21 +149,26 @@ def extract_data(ctx: ETLContext, query: str, source: str = "oracle") -> pl.Data
     query : str
         The SQL query to execute
     source : str, optional
-        The source database ('oracle', 'pg_core', or 'pg_auac'), by default "oracle"
+        The source database ('oracle_area', 'oracle_poa', 'pg_core', or 'pg_auac'),
+        by default "oracle_area"
 
     Returns
     -------
     pl.DataFrame
         A polars DataFrame containing the extracted data
     """
-    if source == "oracle":
-        engine = ctx.oracle_engine
+    if source == "oracle_area":
+        engine = ctx.oracle_engine_area
+    elif source == "oracle_poa":
+        engine = ctx.oracle_engine_poa
     elif source == "pg_core":
         engine = ctx.pg_engine_core
     elif source == "pg_auac":
         engine = ctx.pg_engine_auac
     else:
-        raise ValueError(f"Invalid source: {source}. Must be 'oracle', 'pg_core', or 'pg_auac'")
+        raise ValueError(
+            f"Invalid source: {source}. Must be 'oracle_area', 'oracle_poa', 'pg_core', or 'pg_auac'"
+        )
 
     df = pl.read_database(query, connection=engine.connect(), infer_schema_length=None)
 
