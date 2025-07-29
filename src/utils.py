@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import polars as pl
@@ -138,7 +139,11 @@ def setup_connections() -> ETLContext:
     )
 
 
-def extract_data(ctx: ETLContext, query: str, source: str = "oracle_area") -> pl.DataFrame:
+def extract_data(
+    ctx: ETLContext,
+    query: str,
+    source: Literal["oracle_area", "oracle_poa", "pg_core", "pg_auac"] = "oracle_area",
+) -> pl.DataFrame:
     """
     Extract data from a database and log the extraction.
 
