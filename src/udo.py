@@ -161,8 +161,13 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     """
     Migrate UDO types from Oracle to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    Transfers data from multiple Oracle tables related to UDO types to the PostgreSQL table
+    "udo_types".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
     """
     ### EXTRACT ###
     df_tipo_udo_22_templ = extract_data(ctx, "SELECT * FROM AUAC_USR.TIPO_UDO_22_TEMPL")
@@ -440,7 +445,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
 
 def migrate_udos(ctx: ETLContext) -> None:
     """
-    Migrates UDO data from UDO_MODEL to the "udos" table.
+    Migrates UDO (Unità di Offerta) data from source to target database.
 
     Args:
         ctx: The ETL context containing database connections
@@ -532,16 +537,13 @@ def migrate_udos(ctx: ETLContext) -> None:
 
     df_result = df_result.drop("ID_UO")
 
-    # TODO: Capire perchè non ha la physical struture associata. Stesso problema nella migrate_buildings in company.py
-    df_result = df_result.filter(pl.col("building_id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
-
     ### LOAD ###
     load_data(ctx, df_result, "udos")
 
 
 def migrate_udo_production_factors(ctx: ETLContext) -> None:
     """
-    Migrate UDO production factors from Oracle to PostgreSQL.
+    Migrates the relationship between UDOs and production factors.
 
     Args:
         ctx: The ETL context containing database connections
@@ -561,7 +563,7 @@ def migrate_udo_production_factors(ctx: ETLContext) -> None:
 
 def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
     """
-    Migrate UDO type production factor types from Oracle to PostgreSQL.
+    Migrates the relationship between UDO types and production factor types.
 
     Args:
         ctx: The ETL context containing database connections
@@ -579,27 +581,21 @@ def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
     load_data(ctx, df_result, "udo_type_production_factor_types")
 
 
-def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
+def migrate_udo_specialties(ctx: ETLContext) -> None:
     """
-    Migrate branches data to specialties.
+    Migrates specialty data related to UDOs.
 
-    This replaces the old migrate_udo_branches function as disciplines and branches
-    have been merged into specialties.
-
-    Parameters
-    ----------
-    ctx: ETLContext
-        The ETL context containing database connections
+    Args:
+        ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
     df_bind_udo_branca = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA")
     df_bind_udo_branca_altro = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO")
+    df_bind_udo_disciplina = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA")
+    df_uo_model = extract_data(ctx, "SELECT * FROM AUAC_USR.UO_MODEL")
 
     ### TRANSFORM ###
-    # Process main branch data
-    df_bind_udo_branca = df_bind_udo_branca.select(
-        pl.col("ID_BRANCA_FK").str.strip_chars().alias("specialty_id"),
-        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
+    df_bind_udo_branca_tr = df_bind_udo_branca.select(
         pl.when(pl.col("AUTORIZZATA").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
@@ -608,96 +604,63 @@ def migrate_udo_specialties_from_branches(ctx: ETLContext) -> None:
         .then(True)
         .otherwise(False)
         .alias("is_accredited"),
+        pl.lit(None).alias("num_beds"),
+        pl.lit(None).alias("num_extra_beds"),
+        pl.lit(None).alias("num_mortuary_beds"),
+        pl.lit(None).alias("num_accredited_beds"),
+        pl.lit(None).alias("hsp12"),
+        pl.lit(None).alias("clinical_operational_unit_id"),
+        pl.lit(None).alias("clinical_poa_node_id"),
+        pl.col("ID_BRANCA_FK").str.strip_chars().alias("specialty_id"),
+        pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
     )
-
-    # Process alternative branch data
-    df_bind_udo_branca_altro = df_bind_udo_branca_altro.select(
+    df_bind_udo_branca_altro_tr = df_bind_udo_branca_altro.select(
+        pl.lit(False).alias("is_authorized"),
+        pl.lit(False).alias("is_accredited"),
+        pl.lit(None).alias("num_beds"),
+        pl.lit(None).alias("num_extra_beds"),
+        pl.lit(None).alias("num_mortuary_beds"),
+        pl.lit(None).alias("num_accredited_beds"),
+        pl.lit(None).alias("hsp12"),
+        pl.lit(None).alias("clinical_operational_unit_id"),
+        pl.lit(None).alias("clinical_poa_node_id"),
         pl.col("ID_ARTIC_BRANCA_ALTRO_FK").str.strip_chars().alias("specialty_id"),
         pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
     )
-
-    # Add default values for missing columns in the alternative branch data
-    df_bind_udo_branca_altro = df_bind_udo_branca_altro.with_columns(
-        pl.lit(False).alias("is_authorized"),
-        pl.lit(False).alias("is_accredited"),
+    df_result_branches = pl.concat(
+        [df_bind_udo_branca_tr, df_bind_udo_branca_altro_tr], how="vertical_relaxed"
     )
 
-    # Combine both dataframes
-    df_result = pl.concat([df_bind_udo_branca, df_bind_udo_branca_altro])
-
-    ### LOAD ###
-    load_data(ctx, df_result, "udo_specialties")
-
-
-def migrate_udo_specialties_from_disciplines(ctx: ETLContext) -> None:
-    """
-    Migrate disciplines data to specialties.
-
-    Disciplines and branches have been merged into specialties.
-
-    Parameters
-    ----------
-    ctx: ETLContext
-        The ETL context containing database connections
-    """
-    ### EXTRACT ###
-    df_bind_udo_disciplina = extract_data(ctx, "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA")
-
-    ### TRANSFORM ###
-    # Filter out rows with null discipline IDs
-    df_bind_udo_disciplina = df_bind_udo_disciplina.filter(pl.col("ID_DISCIPLINA_FK").is_not_null())
-
-    # Process UO_MODEL data for clinical operational units
-    # We'll use a direct query approach to avoid the need for oracle_poa_engine
-    df_uo_model_map = None
-    try:
-        df_uo_model_map = extract_data(ctx, "SELECT ID_UO, CLIENTID FROM AUAC_USR.UO_MODEL")
-    except Exception as e:
-        logging.warning(f"Could not extract UO_MODEL data: {e}")
-        df_uo_model_map = pl.DataFrame({"ID_UO": [], "CLIENTID": []})
-
-    # Transform the main data
-    df_result = df_bind_udo_disciplina.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
+    df_bind_udo_disciplina_tr = df_bind_udo_disciplina.filter(
+        pl.col(
+            "ID_DISCIPLINA_FK"
+        ).is_not_null()  # TODO: Siamo sicuri che sia giusto togliere tutti quelli con specialty_id null?
+    ).select(
+        pl.lit(False).alias("is_authorized"),
+        pl.lit(False).alias("is_accredited"),
+        pl.col("POSTI_LETTO").alias("num_beds"),
+        pl.col("POSTI_LETTO_EXTRA").alias("num_extra_beds"),
+        pl.col("POSTI_LETTO_OBI").alias("num_mortuary_beds"),
+        pl.col("POSTI_LETTO_ACC").alias("num_accredited_beds"),
+        pl.col("HSP12").str.strip_chars().alias("hsp12"),
+        pl.lit(None).alias("clinical_poa_node_id"),
         pl.col("ID_DISCIPLINA_FK").str.strip_chars().alias("specialty_id"),
         pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
-        pl.col("POSTI_LETTO").cast(pl.UInt16, strict=False).fill_null(0).alias("beds"),
-        pl.col("POSTI_LETTO_EXTRA").cast(pl.UInt16, strict=False).fill_null(0).alias("extra_beds"),
-        pl.col("POSTI_LETTO_OBI").cast(pl.UInt16, strict=False).fill_null(0).alias("mortuary_beds"),
-        pl.col("POSTI_LETTO_ACC")
-        .cast(pl.UInt16, strict=False)
-        .fill_null(0)
-        .alias("accredited_beds"),
-        pl.col("HSP12").str.strip_chars().alias("hsp12"),
         pl.col("ID_UO").alias("ID_UO"),
         pl.col("PROVENIENZA_UO").alias("PROVENIENZA_UO"),
     )
+    df_uo_model_tr = df_uo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("clinical_operational_unit_id"),
+        pl.col("ID_UO").alias("ID_UO"),
+    )
+    df_result_disciplines = df_bind_udo_disciplina_tr.join(
+        df_uo_model_tr,
+        on="ID_UO",
+        how="left",
+    )
+    df_result_disciplines = df_result_disciplines.drop(["ID_UO", "PROVENIENZA_UO"])
 
-    # Join with UO_MODEL data if available
-    if df_uo_model_map is not None and df_uo_model_map.height > 0:
-        df_result = df_result.join(
-            df_uo_model_map,
-            left_on="ID_UO",
-            right_on="ID_UO",
-            how="left",
-        ).with_columns(pl.col("CLIENTID").alias("clinical_operational_unit_id"))
-
-    # Since we don't have access to the V_NODI table through oracle_poa_engine,
-    # we'll skip that part and just set clinical_organigram_node_id to null
-
-    # Drop unnecessary columns and rename the rest
-    df_result = df_result.drop(["ID_UO", "PROVENIENZA_UO"])
-
-    # Ensure CLIENTID from UO_MODEL is not included in the final dataframe
-    if "CLIENTID" in df_result.columns:
-        df_result = df_result.drop("CLIENTID")
-
-    # Handle any null values in the clinical_operational_unit_id column
-    if "clinical_operational_unit_id" not in df_result.columns:
-        df_result = df_result.with_columns(pl.lit(None).alias("clinical_operational_unit_id"))
-
-    # Add clinical_organigram_node_id column with null values
-    df_result = df_result.with_columns(pl.lit(None).alias("clinical_organigram_node_id"))
+    df_result = pl.concat([df_result_branches, df_result_disciplines], how="diagonal_relaxed")
 
     ### LOAD ###
     load_data(ctx, df_result, "udo_specialties")

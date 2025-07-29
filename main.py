@@ -28,8 +28,7 @@ from udo import (
     migrate_production_factors,
     migrate_udo_production_factors,
     migrate_udo_resolutions,
-    migrate_udo_specialties_from_branches,
-    migrate_udo_specialties_from_disciplines,
+    migrate_udo_specialties,
     migrate_udo_type_classifications,
     migrate_udo_type_production_factor_types,
     migrate_udo_types,
@@ -83,8 +82,7 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_udos(ctx)
     migrate_udo_production_factors(ctx)
     migrate_udo_type_production_factor_types(ctx)
-    migrate_udo_specialties_from_branches(ctx)
-    migrate_udo_specialties_from_disciplines(ctx)
+    migrate_udo_specialties(ctx)
     migrate_udo_resolutions(ctx)
     migrate_udos_history(ctx)
     migrate_resolution_types(ctx)

@@ -334,8 +334,5 @@ def migrate_buildings(ctx: ETLContext) -> None:
         )
     )
 
-    # TODO: Capire perchè non ha la physical struture associata
-    df_result = df_result.filter(pl.col("id") != "51830E93-379D-7D6D-E050-A8C083673C0F")
-
     ### LOAD ###
     load_data(ctx, df_result, "buildings")
