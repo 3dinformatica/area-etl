@@ -72,6 +72,3 @@ case-sensitive = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
-
-[tool.ruff.lint.per-file-ignores]
-"main.py" = ["PLR0915"]
