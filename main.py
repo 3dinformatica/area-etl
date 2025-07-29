@@ -2,6 +2,12 @@ import argparse
 import logging
 from datetime import datetime
 
+from auac import (
+    migrate_procedures,
+    migrate_requirement_lists,
+    migrate_requirement_taxonomies,
+    migrate_requirements,
+)
 from company import (
     migrate_buildings,
     migrate_companies,
@@ -104,6 +110,10 @@ def migrate_auac(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     truncate_auac_tables(ctx)
+    migrate_requirement_taxonomies(ctx)
+    migrate_requirement_lists(ctx)
+    migrate_requirements(ctx)
+    migrate_procedures(ctx)
 
 
 def parse_args():
