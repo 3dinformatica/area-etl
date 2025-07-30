@@ -566,65 +566,21 @@ def migrate_buildings(ctx: ETLContext) -> None:
 ### SPECIALTY ###
 
 
-def map_macroarea(value: str | None) -> str | None:
-    """Map a macroarea string to a standardized format.
-
-    This function takes a string representing a macroarea, converts it to lowercase,
-    removes leading and trailing whitespace, and maps it to a standardized value
-    using a predefined dictionary. If the value is not found in the mapping,
-    the original value is returned.
-
-    Parameters
-    ----------
-    value: str | None
-        The macroarea string to be mapped or None
-
-    Returns
-    -------
-    str | None
-        The standardized macroarea value or None if the input is None
-    """
-    if not value:
-        return None
-
-    value = value.lower().strip()
-
-    macroarea_mapping = {
-        "acuti": "ACUTI",
-        "riabilitazione": "RIABILITAZIONE",
-        "intermedie": "INTERMEDIE",
-        "territoriale": "TERRITORIALE",
-    }
-
-    return macroarea_mapping.get(value, value)
+MACROAREA_MAPPING = {
+    "acuti": "ACUTI",
+    "riabilitazione": "RIABILITAZIONE",
+    "intermedie": "INTERMEDIE",
+    "territoriale": "TERRITORIALE",
+}
 
 
-def map_specialty_type(value: str | None) -> str | None:
-    """Map a specialty type string to a standardized format.
-
-    This function takes a string representing a specialty type and maps it to a standardized value
-    using a predefined dictionary. If the value is not found in the mapping,
-    None is returned.
-
-    Parameters
-    ----------
-    value: str | None
-        The specialty type string to be mapped or None
-
-    Returns
-    -------
-    str | None
-        The standardized specialty type value or None if the input is not found in the mapping
-    """
-    specialty_type_mapping = {
-        "alt": "ALTRO",
-        "ter": "TERRITORIALE",
-        "terr": "TERRITORIALE",
-        "nonosp": "NON_OSPEDALIERO",
-        "osp": "OSPEDALIERO",
-    }
-
-    return specialty_type_mapping.get(value)
+SPECIALTY_TYPE_MAPPING = {
+    "alt": "ALTRO",
+    "ter": "TERRITORIALE",
+    "terr": "TERRITORIALE",
+    "nonosp": "NON_OSPEDALIERO",
+    "osp": "OSPEDALIERO",
+}
 
 
 def migrate_grouping_specialties(ctx: ETLContext) -> None:
@@ -661,7 +617,11 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
     df_result = df_result.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
-        pl.col("macroarea").str.strip_chars().map_elements(map_macroarea, return_dtype=pl.String),
+        handle_enum_mapping(
+            source_col="macroarea",
+            target_col="macroarea",
+            mapping_dict=MACROAREA_MAPPING,
+        ),
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
@@ -746,11 +706,11 @@ def migrate_specialties(ctx: ETLContext) -> None:
         pl.col("NOME").str.strip_chars().alias("name"),
         pl.col("DESCR").str.strip_chars().alias("description"),
         pl.lit("DISCIPLINE").alias("record_type"),
-        pl.col("TIPO")
-        .str.strip_chars()
-        .str.to_lowercase()
-        .map_elements(map_specialty_type, return_dtype=pl.String)
-        .alias("type"),
+        handle_enum_mapping(
+            source_col="TIPO",
+            target_col="type",
+            mapping_dict=SPECIALTY_TYPE_MAPPING,
+        ),
         pl.col("CODICE").str.strip_chars().alias("code"),
         pl.when(pl.col("PROGRAMMAZIONE") == 1)
         .then(True)
@@ -2212,31 +2172,10 @@ def migrate_udos_history(ctx: ETLContext) -> None:
 ### USER ###
 
 
-def map_user_role(value: str) -> str:
-    """
-    Map a user role string to a standardized format.
-
-    Converts the input string to lowercase and maps it to one of the standard role types
-    based on keyword matching.
-
-    Parameters
-    ----------
-    value: str
-        The user role string to be mapped
-
-    Returns
-    -------
-    str
-        The standardized role value: "REGIONAL_OPERATOR", "ADMIN", or "OPERATOR"
-    """
-    value = value.lower()
-
-    if "region" in value:
-        return "REGIONAL_OPERATOR"
-    elif "amministratore" in value:
-        return "ADMIN"
-    else:
-        return "OPERATOR"
+USER_ROLE_MAPPING = {
+    "region": "REGIONAL_OPERATOR",
+    "amministratore": "ADMIN",
+}
 
 
 def migrate_users(ctx: ETLContext) -> None:
@@ -2296,11 +2235,12 @@ def migrate_users(ctx: ETLContext) -> None:
         )
         .select(
             pl.col("USERNAME_CAS").str.strip_chars().alias("username"),
-            pl.col("RUOLO")
-            .str.strip_chars()
-            .map_elements(map_user_role, return_dtype=pl.String)
-            .fill_null("OPERATORE")
-            .alias("role"),
+            handle_enum_mapping(
+                source_col="RUOLO",
+                target_col="role",
+                mapping_dict=USER_ROLE_MAPPING,
+                default="OPERATOR",
+            ).fill_null("OPERATOR"),
             pl.col("NOME").str.strip_chars().alias("first_name"),
             pl.col("COGNOME").str.strip_chars().alias("last_name"),
             pl.col("CFISC").str.strip_chars().alias("tax_code"),
@@ -2458,8 +2398,6 @@ def migrate_core(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     truncate_core_tables(ctx)
-    migrate_resolution_types(ctx)
-    migrate_resolutions(ctx)
     migrate_regions(ctx)
     migrate_provinces(ctx)
     migrate_municipalities(ctx)
@@ -2473,6 +2411,8 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_buildings(ctx)
     migrate_grouping_specialties(ctx)
     migrate_specialties(ctx)
+    migrate_resolution_types(ctx)
+    migrate_resolutions(ctx)
     migrate_operational_units(ctx)
     migrate_production_factor_types(ctx)
     migrate_production_factors(ctx)
