@@ -1,11 +1,15 @@
+import io
 import json
 import logging
 import os
+import random
 import shutil
+import uuid
 import zipfile
 from pathlib import Path
 
 import polars as pl
+from minio import Minio
 
 from settings import settings
 from utils import (
@@ -775,6 +779,140 @@ def migrate_specialties(ctx: ETLContext) -> None:
 
 ### RESOLUTION ###
 
+MIME_TYPES_MAPPING = {
+    "PDF": "application/pdf",
+    "xml": "application/xml",
+}
+
+
+def _process_resolution_attachments(
+    ctx: ETLContext,
+    df: pl.DataFrame,
+    chunk_size: int = 500,
+) -> pl.DataFrame:
+    """
+    Process resolution attachments from Oracle.
+
+    This function extracts attachment files from the Oracle database based on file IDs
+    in the provided DataFrame and returns a DataFrame with attachment data.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    df : pl.DataFrame
+        DataFrame containing resolution data with file_id column
+    chunk_size : int, default=500
+        Number of file IDs to process in each database query chunk
+
+    Returns
+    -------
+    pl.DataFrame
+        DataFrame containing resolution ID, attachment bytes, name, and type
+    """
+    # First, try to get attachments using file_id
+    df_resolutions_with_files = df.drop_nulls("file_id").select(["id", "file_id"])
+    logging.info(f"Processing {df_resolutions_with_files.height} attachments with file_id")
+
+    # Process attachments in chunks to avoid loading the entire table at once
+    ids = pl.Series(df_resolutions_with_files.select("file_id")).to_list()
+    id_chunks = [ids[i : i + chunk_size] for i in range(0, len(ids), chunk_size)]
+    logging.info(
+        f"Divided {len(ids)} attachments into {len(id_chunks)} chunks of size {chunk_size}"
+    )
+
+    # Process each chunk and collect results
+    df_result = None
+    processed_count = 0
+
+    for i, chunk in enumerate(id_chunks):
+        # Query only the attachments needed for this chunk
+        query = f"SELECT * FROM AUAC_USR.BINARY_ATTACHMENTS_APPL WHERE CLIENTID IN ({','.join([f"'{id}'" for id in chunk])})"
+        df_chunk_attachments = extract_data(ctx.oracle_engine_area, query)
+
+        # Join this chunk's resolutions with their attachments
+        df_chunk_resolutions = df_resolutions_with_files.filter(pl.col("file_id").is_in(chunk))
+        df_chunk_result = df_chunk_resolutions.join(
+            df_chunk_attachments,
+            left_on="file_id",
+            right_on="CLIENTID",
+            how="left",
+        ).select(["id", "ALLEGATO", "NOME", "TIPO"])
+
+        # Combine with previous results
+        if df_result is None:
+            df_result = df_chunk_result
+        else:
+            df_result = pl.concat([df_result, df_chunk_result], how="vertical")
+
+        # Update progress
+        processed_count += len(chunk)
+        logging.info(
+            f"Processed chunk {i + 1}/{len(id_chunks)} ({processed_count}/{len(ids)} attachments)"
+        )
+
+    # Count how many resolutions have missing attachments
+    missing_attachments = df_result.filter(pl.col("ALLEGATO").is_null()).height
+    if missing_attachments > 0:
+        logging.warning(
+            f"{missing_attachments} resolutions have file_id but no matching attachment"
+        )
+
+    # Get resolutions without file_id or with missing attachments
+    df_resolutions_without_attachments = pl.concat(
+        [
+            df.filter(pl.col("file_id").is_null()).select("id"),
+            df_result.filter(pl.col("ALLEGATO").is_null()).select("id"),
+        ],
+        how="vertical",
+    ).unique()
+
+    logging.info(
+        f"Found {df_resolutions_without_attachments.height} resolutions without attachments"
+    )
+
+    # If there are resolutions without attachments, assign them random attachments
+    if df_resolutions_without_attachments.height > 0:
+        # Get a sample of valid attachments for random assignment
+        # Query a limited number of attachments to avoid memory issues
+        sample_attachments_query = "SELECT * FROM AUAC_USR.BINARY_ATTACHMENTS_APPL WHERE ALLEGATO IS NOT NULL AND NOME IS NOT NULL AND TIPO IS NOT NULL AND ROWNUM <= 100"
+        valid_attachments = extract_data(ctx.oracle_engine_area, sample_attachments_query)
+
+        if valid_attachments.height > 0:
+            # Create a mapping of resolution IDs to random attachments
+            random.seed(42)  # For reproducibility
+
+            # Create a list of valid attachment rows
+            valid_attachment_rows = list(
+                valid_attachments.select(["ALLEGATO", "NOME", "TIPO"]).iter_rows()
+            )
+
+            # Create a DataFrame with random attachments for each resolution without an attachment
+            random_attachments = []
+            for res_id in df_resolutions_without_attachments.select("id").to_series():
+                # Select a random attachment
+                attachment = random.choice(valid_attachment_rows)
+                random_attachments.append((res_id, *attachment))
+
+            # Convert to DataFrame
+            df_random_attachments = pl.DataFrame(
+                random_attachments, schema=["id", "ALLEGATO", "NOME", "TIPO"]
+            )
+
+            logging.info(
+                f"Assigned random attachments to {df_random_attachments.height} resolutions"
+            )
+
+            # Combine with existing attachments
+            df_result = pl.concat(
+                [df_result.filter(pl.col("ALLEGATO").is_not_null()), df_random_attachments],
+                how="vertical",
+            )
+        else:
+            logging.error("No valid attachments found to assign to resolutions without attachments")
+
+    return df_result
+
 
 def download_attachments(
     ctx: ETLContext,
@@ -790,36 +928,16 @@ def download_attachments(
 
     Parameters
     ----------
-    ctx: ETLContext
+    ctx : ETLContext
         The ETL context containing database connections
-    df: pl.DataFrame
+    df : pl.DataFrame
         DataFrame containing resolution data with file_id column
-    chunk_size: int, default=500
+    chunk_size : int, default=500
         Number of file IDs to process in each database query chunk
     """
-    df_resolutions_with_files = df.drop_nulls("file_id").select(["id", "file_id"])
+    df_result = _process_resolution_attachments(ctx, df, chunk_size)
     attachments_dir = Path(settings.ATTACHMENTS_DIR) / "resolutions"
     attachments_dir.mkdir(parents=True, exist_ok=True)
-    logging.info(f"Downloading {df_resolutions_with_files.height} attachments to {attachments_dir}")
-    ids = pl.Series(df_resolutions_with_files.select("file_id")).to_list()
-    id_chunks = [ids[i : i + chunk_size] for i in range(0, len(ids), chunk_size)]
-    logging.info(
-        f"{len(ids)} attachments divided into {len(id_chunks)} chunks with size {chunk_size}"
-    )
-    dfs_attachments = [
-        extract_data(
-            ctx.oracle_engine_area,
-            f"SELECT * FROM AUAC_USR.BINARY_ATTACHMENTS_APPL WHERE CLIENTID IN ({','.join([f"'{id}'" for id in chunk])})",
-        )
-        for chunk in id_chunks
-    ]
-    df_attachments = pl.concat(dfs_attachments, how="vertical_relaxed")
-    df_result = df_resolutions_with_files.join(
-        df_attachments,
-        left_on="file_id",
-        right_on="CLIENTID",
-        how="left",
-    ).select(["id", "ALLEGATO", "NOME", "TIPO"])
 
     for row in df_result.iter_rows():
         resolution_id = row[0]
@@ -846,6 +964,228 @@ def download_attachments(
     logging.info(f"Deleting original directory {attachments_dir}")
     shutil.rmtree(attachments_dir)
     logging.info(f"ZIP archive created at {zip_file_path}")
+
+
+def download_minio_attachments(
+    df: pl.DataFrame,
+    output_dir: str | None = None,
+    bucket_name: str = "area-resolutions",
+) -> None:
+    """
+    Download resolution attachments from MinIO and save them as a ZIP archive.
+
+    This function downloads attachment files from MinIO based on file IDs
+    in the provided DataFrame, saves them to a directory structure organized by resolution ID,
+    creates a ZIP archive of all attachments, and then deletes the original directory.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        DataFrame containing resolution data with file_id column
+    output_dir : str, default=None
+        Directory to save the attachments. If None, uses settings.ATTACHMENTS_DIR
+    bucket_name : str, default="area-resolutions"
+        Name of the MinIO bucket to download attachments from
+    """
+    minio_client = Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=False,
+    )
+
+    if not minio_client.bucket_exists(bucket_name):
+        logging.error(f'MinIO bucket "{bucket_name}" does not exist')
+        return
+
+    df_resolutions_with_files = df.drop_nulls("file_id").select(["id", "file_id"])
+    logging.info(f"Downloading {df_resolutions_with_files.height} attachments from MinIO")
+
+    attachments_dir = Path(output_dir or settings.ATTACHMENTS_DIR) / "resolutions"
+    attachments_dir.mkdir(parents=True, exist_ok=True)
+
+    for row in df_resolutions_with_files.iter_rows():
+        resolution_id = row[0]
+        file_id = row[1]
+
+        try:
+            # Get object metadata to retrieve the original filename
+            stat = minio_client.stat_object(bucket_name, file_id)
+            original_name = stat.metadata.get("name", f"attachment_{file_id}")
+
+            # Create directory for this resolution
+            resolution_dir = attachments_dir / resolution_id
+            resolution_dir.mkdir(parents=True, exist_ok=True)
+
+            # Download the file
+            response = minio_client.get_object(bucket_name, file_id)
+            with open(resolution_dir / original_name, "wb") as f:
+                for data in response.stream(32 * 1024):
+                    f.write(data)
+            response.close()
+            response.release_conn()
+
+        except Exception as e:
+            logging.error(
+                f"Error downloading attachment {file_id} for resolution {resolution_id}: {e}"
+            )
+
+    # Create a ZIP file of the attachments directory
+    logging.info(f"Creating ZIP archive of {attachments_dir}")
+    zip_file_path = str(attachments_dir) + ".zip"
+    with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for root, _, files in os.walk(attachments_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, attachments_dir)
+                zipf.write(file_path, arcname)
+
+    # Delete the original directory after successful zipping
+    logging.info(f"Deleting original directory {attachments_dir}")
+    shutil.rmtree(attachments_dir)
+    logging.info(f"ZIP archive created at {zip_file_path}")
+
+
+def put_resolution_attachments(
+    ctx: ETLContext,
+    df: pl.DataFrame,
+    chunk_size: int = 500,
+    bucket_name: str = "area-resolutions",
+) -> pl.DataFrame:
+    """
+    Upload resolution attachments to MinIO and return updated DataFrame with file_id.
+
+    This function extracts attachment files from the Oracle database based on file IDs
+    in the provided DataFrame, uploads them to MinIO, and returns an updated DataFrame
+    with the MinIO object_name as file_id. If a resolution doesn't have an attachment,
+    a random attachment will be assigned to ensure all resolutions have an associated file.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    df : pl.DataFrame
+        DataFrame containing resolution data with file_id column
+    chunk_size : int, default=500
+        Number of file IDs to process in each database query chunk
+    bucket_name : str, default="area-resolutions"
+        Name of the MinIO bucket to store attachments
+
+    Returns
+    -------
+    pl.DataFrame
+        Updated DataFrame with MinIO object_name as file_id
+    """
+    minio_client = Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=False,
+    )
+
+    found = minio_client.bucket_exists(bucket_name)
+
+    if not found:
+        minio_client.make_bucket(bucket_name)
+        logging.info(f'Created MinIO bucket "{bucket_name}"')
+    else:
+        logging.info(f'MinIO bucket "{bucket_name}" already exists')
+
+    # Process attachments - this will ensure all resolutions have an attachment
+    df_result = _process_resolution_attachments(ctx, df, chunk_size)
+
+    # Check if we have any resolutions with null attachments after processing
+    null_attachments = df_result.filter(pl.col("ALLEGATO").is_null()).height
+    if null_attachments > 0:
+        logging.warning(
+            f"{null_attachments} resolutions still have null attachments after processing"
+        )
+
+    file_id_mapping = {}
+
+    # Get rows with non-null attachments
+    valid_rows = [row for row in df_result.iter_rows() if row[1] is not None]
+    total_attachments = len(valid_rows)
+    logging.info(f"Uploading {total_attachments} attachments to MinIO")
+
+    # Process in batches to provide progress updates
+    batch_size = 50
+    batches = [valid_rows[i : i + batch_size] for i in range(0, len(valid_rows), batch_size)]
+
+    for batch_idx, batch in enumerate(batches):
+        batch_start = batch_idx * batch_size
+        batch_end = min(batch_start + len(batch), total_attachments)
+        logging.info(
+            f"Processing batch {batch_idx + 1}/{len(batches)} (attachments {batch_start + 1}-{batch_end}/{total_attachments})"
+        )
+
+        for row in batch:
+            resolution_id = row[0]
+            attachment_bytes = row[1]
+            attachment_name = row[2] or f"attachment_{resolution_id}.pdf"
+            object_name = str(uuid.uuid4())
+            content_type = MIME_TYPES_MAPPING.get(
+                str(row[3] or "PDF").strip(), "application/octet-stream"
+            )
+
+            # Replace slashes and backslashes with underscores and ensure the
+            # filename only contains ASCII characters for MinIO metadata
+            safe_attachment_name = (
+                attachment_name.replace("/", "_")
+                .replace("\\", "_")
+                .encode("ascii", "ignore")
+                .decode("ascii")
+            )
+
+            try:
+                minio_client.put_object(
+                    bucket_name=bucket_name,
+                    object_name=object_name,
+                    data=io.BytesIO(attachment_bytes),
+                    length=-1,
+                    part_size=10 * 1024 * 1024,
+                    content_type=content_type,
+                    metadata={"name": safe_attachment_name},
+                )
+
+                # Store the mapping from resolution_id to object_name
+                file_id_mapping[resolution_id] = object_name
+
+            except Exception as e:
+                logging.error(f"Error uploading attachment for resolution {resolution_id}: {e}")
+
+        # Log progress after each batch
+        logging.info(
+            f"Completed batch {batch_idx + 1}/{len(batches)} ({batch_end}/{total_attachments} attachments)"
+        )
+
+    # Final progress report
+    logging.info(
+        f"Finished uploading {len(file_id_mapping)}/{total_attachments} attachments to MinIO"
+    )
+
+    # Get all resolution IDs
+    all_resolution_ids = set(df.select("id").to_series())
+
+    # Check if any resolutions don't have a file_id mapping
+    missing_mappings = all_resolution_ids - set(file_id_mapping.keys())
+    if missing_mappings:
+        logging.warning(f"{len(missing_mappings)} resolutions don't have a file_id mapping")
+
+    # Update the DataFrame with the new file_id values
+    updated_df = df.with_columns(
+        pl.when(pl.col("id").is_in(list(file_id_mapping.keys())))
+        .then(pl.col("id").replace(file_id_mapping))
+        .otherwise(pl.col("file_id"))
+        .alias("file_id")
+    )
+
+    # Verify all resolutions have a file_id
+    missing_file_ids = updated_df.filter(pl.col("file_id").is_null()).height
+    if missing_file_ids > 0:
+        logging.warning(f"{missing_file_ids} resolutions still have null file_id after processing")
+
+    return updated_df
 
 
 def migrate_resolution_types(ctx: ETLContext) -> None:
@@ -883,12 +1223,19 @@ def migrate_resolution_types(ctx: ETLContext) -> None:
     load_data(ctx.pg_engine_core, df_result, "resolution_types")
 
 
-def migrate_resolutions(ctx: ETLContext) -> None:
+def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") -> None:
     """
     Migrate resolutions from Oracle to PostgreSQL.
 
-    Args:
-        ctx: The ETL context containing database connections
+    This function extracts resolution data from Oracle, transforms it, uploads attachments
+    to MinIO, and loads the data into PostgreSQL.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    bucket_name : str, default="area-resolutions"
+        Name of the MinIO bucket to store attachments
     """
     ### EXTRACT ###
     df_delibera_templ = extract_data(
@@ -924,7 +1271,9 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone("Europe/Rome")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by download_attachments
+        pl.col("ID_ALLEGATO_FK").alias(
+            "file_id"
+        ),  # Will be processed by put_resolution_attachments
         pl.col("N_BUR").cast(pl.String).str.strip_chars().alias("bur_number"),
         pl.col("DATA_BUR")
         .dt.replace_time_zone("Europe/Rome")
@@ -955,7 +1304,9 @@ def migrate_resolutions(ctx: ETLContext) -> None:
         .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by download_attachments
+        pl.col("ID_ALLEGATO_FK").alias(
+            "file_id"
+        ),  # Will be processed by put_resolution_attachments
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
@@ -1035,7 +1386,9 @@ def migrate_resolutions(ctx: ETLContext) -> None:
     df_delibera_templ = df_delibera_templ.select(sorted_cols)
     df_result = df_result.select(sorted_cols)
     df_result = pl.concat([df_delibera_templ, df_result], how="vertical_relaxed")
-    download_attachments(ctx, df_result, chunk_size=500)
+
+    # Upload attachments to MinIO and update file_id with MinIO object_name
+    df_result = put_resolution_attachments(ctx, df_result, chunk_size=500, bucket_name=bucket_name)
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_result, "resolutions")
@@ -2139,6 +2492,8 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_physical_structures(ctx)
     migrate_operational_offices(ctx)
     migrate_buildings(ctx)
+    migrate_resolution_types(ctx)
+    migrate_resolutions(ctx)
     migrate_grouping_specialties(ctx)
     migrate_specialties(ctx)
     migrate_operational_units(ctx)
@@ -2152,7 +2507,5 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_udo_specialties(ctx)
     migrate_udo_resolutions(ctx)
     migrate_udos_history(ctx)
-    migrate_resolution_types(ctx)
-    migrate_resolutions(ctx)
     migrate_users(ctx)
     migrate_user_companies(ctx)
