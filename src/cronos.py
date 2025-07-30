@@ -1,6 +1,8 @@
 import logging
 
-from utils import ETLContext, truncate_pg_table
+import polars as pl
+
+from utils import ETLContext, extract_data, load_data, truncate_pg_table
 
 CRONOS_TABLES = [
     "cronos_companies",
@@ -30,6 +32,34 @@ def truncate_cronos_tables(ctx: ETLContext) -> None:
         truncate_pg_table(ctx.pg_engine_cronos, table)
 
 
+def migrate_cronos_taxonomies(ctx: ETLContext) -> None:
+    """
+    Migrate taxonomy data from Oracle to the Cronos service database.
+
+    This function extracts taxonomy data from the Oracle database,
+    transforms it by selecting and renaming required columns,
+    and loads it into the Cronos taxonomies table.
+
+    Parameters
+    ----------
+    ctx : ETLContext
+        The ETL context containing database connections
+    """
+    ### EXTRACT ###
+    df_classificazione_programmazione = extract_data(
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.CLASSIFICAZIONE_PROGRAMMAZIONE"
+    )
+
+    ### TRANSFORM ###
+    df_result = df_classificazione_programmazione.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("NOME").str.strip_chars().alias("name"),
+    )
+
+    ### LOAD ###
+    load_data(ctx.pg_engine_cronos, df_result, "cronos_taxonomies")
+
+
 def migrate_cronos(ctx: ETLContext) -> None:
     """
     Migrate data from source databases to the Cronos service database.
@@ -43,3 +73,4 @@ def migrate_cronos(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     truncate_cronos_tables(ctx)
+    migrate_cronos_taxonomies(ctx)
