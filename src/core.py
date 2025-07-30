@@ -1362,30 +1362,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         direction=pl.lit(None),
     ).drop(["ID_TIPO_PROC_FK", "ID_TIPO_FK", "resolution_type_name"])
 
-    sorted_cols = [
-        "id",
-        "name",
-        "category",
-        "number",
-        "year",
-        "valid_from",
-        "valid_to",
-        "file_id",
-        "bur_number",
-        "bur_date",
-        "dgr_link",
-        "direction",
-        "resolution_type_id",
-        "company_id",
-        "procedure_type",
-        "created_at",
-        "updated_at",
-        "disabled_at",
-    ]
-
-    df_delibera_templ = df_delibera_templ.select(sorted_cols)
-    df_result = df_result.select(sorted_cols)
-    df_result = pl.concat([df_delibera_templ, df_result], how="vertical_relaxed")
+    df_result = pl.concat([df_delibera_templ, df_result], how="diagonal_relaxed")
 
     # Upload attachments to MinIO and update file_id with MinIO object_name
     df_result = put_resolution_attachments(ctx, df_result, chunk_size=500, bucket_name=bucket_name)
@@ -2481,6 +2458,8 @@ def migrate_core(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     truncate_core_tables(ctx)
+    migrate_resolution_types(ctx)
+    migrate_resolutions(ctx)
     migrate_regions(ctx)
     migrate_provinces(ctx)
     migrate_municipalities(ctx)
@@ -2492,8 +2471,6 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_physical_structures(ctx)
     migrate_operational_offices(ctx)
     migrate_buildings(ctx)
-    migrate_resolution_types(ctx)
-    migrate_resolutions(ctx)
     migrate_grouping_specialties(ctx)
     migrate_specialties(ctx)
     migrate_operational_units(ctx)
