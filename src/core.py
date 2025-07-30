@@ -739,6 +739,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
 
 ### RESOLUTION ###
 
+
 MIME_TYPES_MAPPING = {
     "PDF": "application/pdf",
     "xml": "application/xml",
