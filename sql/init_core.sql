@@ -457,7 +457,7 @@ CREATE TABLE public.user_company_permissions
 (
     id            UUID                     DEFAULT gen_random_uuid() NOT NULL,
     user_id       UUID                                               NOT NULL,
-    company_id    UUID                                               NOT NULL,
+    company_id    UUID,
     permission_id UUID                                               NOT NULL,
     created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
     updated_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
@@ -491,6 +491,8 @@ CREATE TABLE public.users
     CONSTRAINT unique_users_username UNIQUE (username),
     CONSTRAINT unique_users_external_id UNIQUE (external_id)
 );
+
+COMMENT ON COLUMN public.users.role IS 'Enum values: ADMIN, REGIONAL_OPERATOR, OPERATOR';
 
 ALTER TABLE public.buildings
     ADD CONSTRAINT fk_buildings_physical_structure_id FOREIGN KEY (physical_structure_id) REFERENCES public.physical_structures (id) ON UPDATE NO ACTION ON DELETE NO ACTION;
