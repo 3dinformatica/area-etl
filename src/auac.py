@@ -53,9 +53,7 @@ def migrate_requirement_taxonomies(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_tipo_requisito = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_REQUISITO"
-    )
+    df_tipo_requisito = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_REQUISITO")
     df_tipo_specifico_requisito = extract_data(
         ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_SPECIFICO_REQUISITO"
     )
@@ -97,9 +95,7 @@ def migrate_requirement_taxonomies(ctx: ETLContext) -> None:
         ]
     )
 
-    df_result = pl.concat(
-        [df_tipo_requisito_tr, df_tipo_specifico_requisito_tr, df_fallback], how="vertical_relaxed"
-    )
+    df_result = pl.concat([df_tipo_requisito_tr, df_tipo_specifico_requisito_tr, df_fallback], how="vertical_relaxed")
 
     ### LOAD ###
     load_data(ctx.pg_engine_auac, df_result, "requirement_taxonomies")
@@ -118,9 +114,7 @@ def migrate_requirement_lists(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_lista_requisiti_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.LISTA_REQUISITI_TEMPL"
-    )
+    df_lista_requisiti_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.LISTA_REQUISITI_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -152,13 +146,9 @@ def migrate_requirements(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_requisito_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.REQUISITO_TEMPL"
-    )
+    df_requisito_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.REQUISITO_TEMPL")
     df_tipo_risposta = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_RISPOSTA")
-    df_requirement_taxonomies = extract_data(
-        ctx.pg_engine_auac, "SELECT * FROM requirement_taxonomies"
-    )
+    df_requirement_taxonomies = extract_data(ctx.pg_engine_auac, "SELECT * FROM requirement_taxonomies")
 
     ### TRANSFORM ###
     requirement_taxonomy_fallback_df = df_requirement_taxonomies.filter(pl.col("name") == "-")
@@ -232,9 +222,7 @@ def migrate_procedures(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_domanda_inst = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DOMANDA_INST")
-    df_tipo_proc_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL"
-    )
+    df_tipo_proc_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps(disabled_col="STATO", disabled_value="CESTINATA")

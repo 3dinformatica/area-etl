@@ -115,9 +115,7 @@ def migrate_municipalities(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     schema_overrides = {"istat_code": pl.String}
-    df_municipalities = extract_data_from_csv(
-        "seed/municipalities_new.csv", schema_overrides=schema_overrides
-    )
+    df_municipalities = extract_data_from_csv("seed/municipalities_new.csv", schema_overrides=schema_overrides)
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_municipalities, "municipalities")
@@ -133,9 +131,7 @@ def migrate_toponyms(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_toponimo_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL"
-    )
+    df_toponimo_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TOPONIMO_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -162,9 +158,7 @@ def migrate_ulss(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_ulss_territoriale = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ULSS_TERRITORIALE"
-    )
+    df_ulss_territoriale = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ULSS_TERRITORIALE")
 
     ### TRANSFORM ###
     df_result = df_ulss_territoriale.select(
@@ -186,20 +180,14 @@ def migrate_districts(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_toponimo_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DISTRETTO_TEMPL"
-    )
+    df_toponimo_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DISTRETTO_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
 
     df_result = df_toponimo_templ.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("TITOLARE")
-        .str.strip_chars()
-        .str.strip_suffix("-")
-        .str.replace("-", " - ")
-        .alias("name"),
+        pl.col("TITOLARE").str.strip_chars().str.strip_suffix("-").str.replace("-", " - ").alias("name"),
         pl.col("DISTRETTO").alias("code"),
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
@@ -263,9 +251,7 @@ def migrate_company_types(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_company_types = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL"
-    )
+    df_company_types = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_TITOLARE_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -277,10 +263,7 @@ def migrate_company_types(ctx: ETLContext) -> None:
         .then(True)
         .otherwise(False)
         .alias("is_show_health_director_declaration_poa"),
-        pl.when(pl.col("ORGANIGRAMMA_ATTIVO") == "S")
-        .then(True)
-        .otherwise(False)
-        .alias("is_active_poa"),
+        pl.when(pl.col("ORGANIGRAMMA_ATTIVO") == "S").then(True).otherwise(False).alias("is_active_poa"),
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
@@ -300,15 +283,9 @@ def migrate_companies(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_titolare_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TITOLARE_MODEL"
-    )
-    df_tipologia_richiedente = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE"
-    )
-    df_natura_titolare_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
-    )
+    df_titolare_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TITOLARE_MODEL")
+    df_tipologia_richiedente = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPOLOGIA_RICHIEDENTE")
+    df_natura_titolare_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL")
     df_municipalities = extract_data(ctx.pg_engine_core, "SELECT * FROM municipalities")
 
     ### TRANSFORM ###
@@ -401,9 +378,7 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_struttura_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL"
-    )
+    df_struttura_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
 
     ### TRANSFORM ###
     # Get timestamp expressions
@@ -429,9 +404,7 @@ def migrate_physical_structures(ctx: ETLContext) -> None:
 
     df_result = df_result.with_columns(
         pl.col("extra").map_elements(
-            lambda x: (
-                "{}" if x["docway_file_id"] is None and x["area_id"] is None else json.dumps(x)
-            ),
+            lambda x: ("{}" if x["docway_file_id"] is None and x["area_id"] is None else json.dumps(x)),
             return_dtype=pl.String,
         )
     )
@@ -453,13 +426,9 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_sede_oper_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL"
-    )
+    df_sede_oper_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
     df_municipalities = extract_data(ctx.pg_engine_core, "SELECT * FROM municipalities")
-    df_tipo_punto_fisico_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL"
-    )
+    df_tipo_punto_fisico_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PUNTO_FISICO_TEMPL")
 
     ### TRANSFORM ###
     df_municipalities_tr = df_municipalities.select(
@@ -492,10 +461,7 @@ def migrate_operational_offices(ctx: ETLContext) -> None:
         pl.col("VIA_PIAZZA").str.strip_chars().alias("street_name"),
         pl.col("CIVICO").str.strip_chars().alias("street_number"),
         pl.col("CAP").alias("zip_code"),
-        pl.when(pl.col("FLAG_INDIRIZZO_PRINCIPALE") == "S")
-        .then(True)
-        .otherwise(False)
-        .alias("is_main_address"),
+        pl.when(pl.col("FLAG_INDIRIZZO_PRINCIPALE") == "S").then(True).otherwise(False).alias("is_main_address"),
         pl.col("NOME").alias("physical_point_type"),
         pl.col("LATITUDINE").cast(pl.Float64).alias("lat"),
         pl.col("LONGITUDINE").cast(pl.Float64).alias("lon"),
@@ -520,9 +486,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_edificio_str_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL"
-    )
+    df_edificio_str_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.EDIFICIO_STR_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -537,10 +501,7 @@ def migrate_buildings(ctx: ETLContext) -> None:
         pl.col("NOME_DI_PROPRIETA").str.strip_chars().alias("owner_first_name"),
         pl.col("RAGIONE_SOCIALE_DI_PROPRIETA").str.strip_chars().alias("owner_business_name"),
         pl.col("PIVA_DI_PROPRIETA").str.strip_chars().alias("owner_vat_number"),
-        pl.when(pl.col("FLAG_DI_PROPRIETA") == 1)
-        .then(True)
-        .otherwise(False)
-        .alias("is_own_property"),
+        pl.when(pl.col("FLAG_DI_PROPRIETA") == 1).then(True).otherwise(False).alias("is_own_property"),
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
@@ -643,9 +604,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_disciplina_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL"
-    )
+    df_disciplina_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DISCIPLINA_TEMPL")
     df_branca_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BRANCA_TEMPL")
     df_artic_branca_altro_templ = extract_data(
         ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ARTIC_BRANCA_ALTRO_TEMPL"
@@ -660,10 +619,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
         pl.lit("BRANCH").alias("record_type"),
         pl.lit(None).alias("type"),
         pl.col("CODICE").str.strip_chars().alias("code"),
-        pl.when(pl.col("PROGRAMMAZIONE") == 1)
-        .then(True)
-        .otherwise(False)
-        .alias("is_used_in_cronos"),
+        pl.when(pl.col("PROGRAMMAZIONE") == 1).then(True).otherwise(False).alias("is_used_in_cronos"),
         pl.lit(True).alias("is_used_in_poa"),
         pl.lit(None).alias("grouping_specialty_id"),
         pl.col("ID_BRANCA").cast(pl.String).str.strip_chars().alias("old_id"),
@@ -673,9 +629,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
         timestamp_exprs["updated_at"],
     )
 
-    df_branca_templ_altro_tr = df_branca_templ.filter(
-        pl.col("IS_ALTRO").str.strip_chars().str.to_lowercase() == "s"
-    )
+    df_branca_templ_altro_tr = df_branca_templ.filter(pl.col("IS_ALTRO").str.strip_chars().str.to_lowercase() == "s")
 
     if df_branca_templ_altro_tr.height != 1:
         raise Exception(
@@ -712,15 +666,9 @@ def migrate_specialties(ctx: ETLContext) -> None:
             mapping_dict=SPECIALTY_TYPE_MAPPING,
         ),
         pl.col("CODICE").str.strip_chars().alias("code"),
-        pl.when(pl.col("PROGRAMMAZIONE") == 1)
-        .then(True)
-        .otherwise(False)
-        .alias("is_used_in_cronos"),
+        pl.when(pl.col("PROGRAMMAZIONE") == 1).then(True).otherwise(False).alias("is_used_in_cronos"),
         pl.when(pl.col("POA") == 1).then(True).otherwise(False).alias("is_used_in_poa"),
-        pl.col("ID_RAGG_DISCIPL_TEMPL_FK")
-        .cast(pl.String)
-        .str.strip_chars()
-        .alias("grouping_specialty_id"),
+        pl.col("ID_RAGG_DISCIPL_TEMPL_FK").cast(pl.String).str.strip_chars().alias("grouping_specialty_id"),
         pl.col("ID_DISCIPLINA").cast(pl.String).str.strip_chars().alias("old_id"),
         pl.lit(None).alias("parent_specialty_id"),
         timestamp_exprs["disabled_at"],
@@ -778,9 +726,7 @@ def _process_resolution_attachments(
     # Process attachments in chunks to avoid loading the entire table at once
     ids = pl.Series(df_resolutions_with_files.select("file_id")).to_list()
     id_chunks = [ids[i : i + chunk_size] for i in range(0, len(ids), chunk_size)]
-    logging.info(
-        f"Divided {len(ids)} attachments into {len(id_chunks)} chunks of size {chunk_size}"
-    )
+    logging.info(f"Divided {len(ids)} attachments into {len(id_chunks)} chunks of size {chunk_size}")
 
     # Process each chunk and collect results
     df_result = None
@@ -808,16 +754,12 @@ def _process_resolution_attachments(
 
         # Update progress
         processed_count += len(chunk)
-        logging.info(
-            f"Processed chunk {i + 1}/{len(id_chunks)} ({processed_count}/{len(ids)} attachments)"
-        )
+        logging.info(f"Processed chunk {i + 1}/{len(id_chunks)} ({processed_count}/{len(ids)} attachments)")
 
     # Count how many resolutions have missing attachments
     missing_attachments = df_result.filter(pl.col("ALLEGATO").is_null()).height
     if missing_attachments > 0:
-        logging.warning(
-            f"{missing_attachments} resolutions have file_id but no matching attachment"
-        )
+        logging.warning(f"{missing_attachments} resolutions have file_id but no matching attachment")
 
     # Get resolutions without file_id or with missing attachments
     df_resolutions_without_attachments = pl.concat(
@@ -828,9 +770,7 @@ def _process_resolution_attachments(
         how="vertical",
     ).unique()
 
-    logging.info(
-        f"Found {df_resolutions_without_attachments.height} resolutions without attachments"
-    )
+    logging.info(f"Found {df_resolutions_without_attachments.height} resolutions without attachments")
 
     # If there are resolutions without attachments, assign them random attachments
     if df_resolutions_without_attachments.height > 0:
@@ -844,9 +784,7 @@ def _process_resolution_attachments(
             random.seed(42)  # For reproducibility
 
             # Create a list of valid attachment rows
-            valid_attachment_rows = list(
-                valid_attachments.select(["ALLEGATO", "NOME", "TIPO"]).iter_rows()
-            )
+            valid_attachment_rows = list(valid_attachments.select(["ALLEGATO", "NOME", "TIPO"]).iter_rows())
 
             # Create a DataFrame with random attachments for each resolution without an attachment
             random_attachments = []
@@ -856,13 +794,9 @@ def _process_resolution_attachments(
                 random_attachments.append((res_id, *attachment))
 
             # Convert to DataFrame
-            df_random_attachments = pl.DataFrame(
-                random_attachments, schema=["id", "ALLEGATO", "NOME", "TIPO"]
-            )
+            df_random_attachments = pl.DataFrame(random_attachments, schema=["id", "ALLEGATO", "NOME", "TIPO"])
 
-            logging.info(
-                f"Assigned random attachments to {df_random_attachments.height} resolutions"
-            )
+            logging.info(f"Assigned random attachments to {df_random_attachments.height} resolutions")
 
             # Combine with existing attachments
             df_result = pl.concat(
@@ -987,9 +921,7 @@ def download_minio_attachments(
             response.release_conn()
 
         except Exception as e:
-            logging.error(
-                f"Error downloading attachment {file_id} for resolution {resolution_id}: {e}"
-            )
+            logging.error(f"Error downloading attachment {file_id} for resolution {resolution_id}: {e}")
 
     # Create a ZIP file of the attachments directory
     logging.info(f"Creating ZIP archive of {attachments_dir}")
@@ -1058,9 +990,7 @@ def put_resolution_attachments(
     # Check if we have any resolutions with null attachments after processing
     null_attachments = df_result.filter(pl.col("ALLEGATO").is_null()).height
     if null_attachments > 0:
-        logging.warning(
-            f"{null_attachments} resolutions still have null attachments after processing"
-        )
+        logging.warning(f"{null_attachments} resolutions still have null attachments after processing")
 
     file_id_mapping = {}
 
@@ -1085,17 +1015,12 @@ def put_resolution_attachments(
             attachment_bytes = row[1]
             attachment_name = row[2] or f"attachment_{resolution_id}.pdf"
             object_name = str(uuid.uuid4())
-            content_type = MIME_TYPES_MAPPING.get(
-                str(row[3] or "PDF").strip(), "application/octet-stream"
-            )
+            content_type = MIME_TYPES_MAPPING.get(str(row[3] or "PDF").strip(), "application/octet-stream")
 
             # Replace slashes and backslashes with underscores and ensure the
             # filename only contains ASCII characters for MinIO metadata
             safe_attachment_name = (
-                attachment_name.replace("/", "_")
-                .replace("\\", "_")
-                .encode("ascii", "ignore")
-                .decode("ascii")
+                attachment_name.replace("/", "_").replace("\\", "_").encode("ascii", "ignore").decode("ascii")
             )
 
             try:
@@ -1116,14 +1041,10 @@ def put_resolution_attachments(
                 logging.error(f"Error uploading attachment for resolution {resolution_id}: {e}")
 
         # Log progress after each batch
-        logging.info(
-            f"Completed batch {batch_idx + 1}/{len(batches)} ({batch_end}/{total_attachments} attachments)"
-        )
+        logging.info(f"Completed batch {batch_idx + 1}/{len(batches)} ({batch_end}/{total_attachments} attachments)")
 
     # Final progress report
-    logging.info(
-        f"Finished uploading {len(file_id_mapping)}/{total_attachments} attachments to MinIO"
-    )
+    logging.info(f"Finished uploading {len(file_id_mapping)}/{total_attachments} attachments to MinIO")
 
     # Get all resolution IDs
     all_resolution_ids = set(df.select("id").to_series())
@@ -1199,13 +1120,9 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         Name of the MinIO bucket to store attachments
     """
     ### EXTRACT ###
-    df_delibera_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DELIBERA_TEMPL"
-    )
+    df_delibera_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.DELIBERA_TEMPL")
     df_atto_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ATTO_MODEL")
-    df_tipo_proc_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL"
-    )
+    df_tipo_proc_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_PROC_TEMPL")
     df_tipo_delibera = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_DELIBERA")
     df_tipo_atto = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_ATTO")
     df_resolution_types = extract_data(ctx.pg_engine_core, "SELECT * FROM resolution_types")
@@ -1224,22 +1141,11 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         pl.col("TIPO_DELIBERA").str.strip_chars().fill_null("ALTRO").alias("category"),
         pl.col("NUMERO").str.strip_chars().alias("number"),
         pl.col("ANNO").str.strip_chars().alias("year"),
-        pl.col("INIZIO_VALIDITA")
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("valid_from"),
-        pl.col("FINE_VALIDITA")
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias(
-            "file_id"
-        ),  # Will be processed by put_resolution_attachments
+        pl.col("INIZIO_VALIDITA").dt.replace_time_zone("Europe/Rome").dt.replace_time_zone(None).alias("valid_from"),
+        pl.col("FINE_VALIDITA").dt.replace_time_zone("Europe/Rome").dt.replace_time_zone(None).alias("valid_to"),
+        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by put_resolution_attachments
         pl.col("N_BUR").cast(pl.String).str.strip_chars().alias("bur_number"),
-        pl.col("DATA_BUR")
-        .dt.replace_time_zone("Europe/Rome")
-        .dt.replace_time_zone(None)
-        .alias("bur_date"),
+        pl.col("DATA_BUR").dt.replace_time_zone("Europe/Rome").dt.replace_time_zone(None).alias("bur_date"),
         pl.col("LINK_DGR").str.strip_chars().alias("dgr_link"),
         pl.col("DIREZIONE").str.strip_chars().alias("direction"),
         pl.col("ID_TIPO_FK").str.strip_chars().alias("resolution_type_id"),
@@ -1265,9 +1171,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         .dt.replace_time_zone("Europe/Rome", ambiguous="earliest")
         .dt.replace_time_zone(None)
         .alias("valid_to"),
-        pl.col("ID_ALLEGATO_FK").alias(
-            "file_id"
-        ),  # Will be processed by put_resolution_attachments
+        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by put_resolution_attachments
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
@@ -1382,9 +1286,7 @@ def migrate_production_factor_types(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_tipo_fattore_prod_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_FATTORE_PROD_TEMPL"
-    )
+    df_tipo_fattore_prod_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_FATTORE_PROD_TEMPL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -1416,9 +1318,7 @@ def migrate_production_factors(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_fatt_prod_udo_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.FATT_PROD_UDO_MODEL"
-    )
+    df_fatt_prod_udo_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.FATT_PROD_UDO_MODEL")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps()
@@ -1426,12 +1326,7 @@ def migrate_production_factors(ctx: ETLContext) -> None:
     df_result = df_fatt_prod_udo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.col("ID_TIPO_FK").str.strip_chars().alias("production_factor_type_id"),
-        pl.col("VALORE")
-        .str.strip_chars()
-        .replace(["", "?"], "0")
-        .fill_null("0")
-        .cast(pl.UInt16)
-        .alias("num_beds"),
+        pl.col("VALORE").str.strip_chars().replace(["", "?"], "0").fill_null("0").cast(pl.UInt16).alias("num_beds"),
         pl.col("VALORE3")
         .str.strip_chars()
         .replace(["", "?"], "0")
@@ -1504,22 +1399,12 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_tipo_udo_22_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_UDO_22_TEMPL"
-    )
-    df_bind_tipo_22_ambito = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_AMBITO"
-    )
+    df_tipo_udo_22_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.TIPO_UDO_22_TEMPL")
+    df_bind_tipo_22_ambito = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_AMBITO")
     df_ambito_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.AMBITO_TEMPL")
-    df_bind_tipo_22_natura = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_NATURA"
-    )
-    df_natura_titolare_templ = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL"
-    )
-    df_bind_tipo_22_flusso = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_FLUSSO"
-    )
+    df_bind_tipo_22_natura = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_NATURA")
+    df_natura_titolare_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.NATURA_TITOLARE_TEMPL")
+    df_bind_tipo_22_flusso = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_FLUSSO")
     df_flusso_templ = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.FLUSSO_TEMPL")
 
     ### TRANSFORM ###
@@ -1558,9 +1443,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("CLIENTID").str.strip_chars().alias("CLIENTID_AMBITO_TEMPL"),
         pl.col("NOME").str.strip_chars().alias("AMBITO_NOME"),
         pl.col("DESCR").str.strip_chars().alias("AMBITO_DESCR"),
-        pl.when(
-            pl.col("AGGIUNGI_DISCIPLINE").str.strip_chars().str.to_lowercase().is_in(["s", "y"])
-        )
+        pl.when(pl.col("AGGIUNGI_DISCIPLINE").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_DISCIPLINE"),
@@ -1568,9 +1451,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_BRANCHE"),
-        pl.when(
-            pl.col("AGGIUNGI_PRESTAZIONI").str.strip_chars().str.to_lowercase().is_in(["s", "y"])
-        )
+        pl.when(pl.col("AGGIUNGI_PRESTAZIONI").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_PRESTAZIONI"),
@@ -1578,36 +1459,19 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_AMBITO"),
-        pl.when(
-            pl.col("AGGIUNGI_DISCIPLINE_AZ_SAN")
-            .str.strip_chars()
-            .str.to_lowercase()
-            .is_in(["s", "y"])
-        )
+        pl.when(pl.col("AGGIUNGI_DISCIPLINE_AZ_SAN").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_DISCIPLINE_AZ_SAN"),
-        pl.when(
-            pl.col("AGGIUNGI_DISCIPLINE_PUB_PRIV")
-            .str.strip_chars()
-            .str.to_lowercase()
-            .is_in(["s", "y"])
-        )
+        pl.when(pl.col("AGGIUNGI_DISCIPLINE_PUB_PRIV").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_DISCIPLINE_PUB_PRIV"),
-        pl.when(
-            pl.col("AGGIUNGI_BRANCHE_AZ_SAN").str.strip_chars().str.to_lowercase().is_in(["s", "y"])
-        )
+        pl.when(pl.col("AGGIUNGI_BRANCHE_AZ_SAN").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_BRANCHE_AZ_SAN"),
-        pl.when(
-            pl.col("AGGIUNGI_BRANCHE_PUB_PRIV")
-            .str.strip_chars()
-            .str.to_lowercase()
-            .is_in(["s", "y"])
-        )
+        pl.when(pl.col("AGGIUNGI_BRANCHE_PUB_PRIV").str.strip_chars().str.to_lowercase().is_in(["s", "y"]))
         .then(True)
         .otherwise(False)
         .alias("AGGIUNGI_BRANCHE_PUB_PRIV"),
@@ -1657,9 +1521,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     )
 
     # Group by UDO type and collect natures into a list
-    df_natures_grouped = df_natures.group_by("ID_TIPO_UDO_22_FK").agg(
-        pl.col("NOME").alias("NATURE")
-    )
+    df_natures_grouped = df_natures.group_by("ID_TIPO_UDO_22_FK").agg(pl.col("NOME").alias("NATURE"))
 
     # Map nature names to standardized values and ensure we're using Python lists, not NumPy arrays
     df_natures_grouped = df_natures_grouped.with_columns(
@@ -1693,9 +1555,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     # Clean and standardize flow names and ensure we're using Python lists, not NumPy arrays
     df_flows_grouped = df_flows_grouped.with_columns(
         pl.col("FLUSSI").map_elements(
-            lambda x: [
-                item.replace(" ", "_").replace(".", "_") for item in list(x) if item is not None
-            ]
+            lambda x: [item.replace(" ", "_").replace(".", "_") for item in list(x) if item is not None]
             if x is not None
             else [],
             return_dtype=pl.List,
@@ -1724,9 +1584,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
     )
 
     # Filter out records with empty scope_name
-    df_result = df_result.filter(
-        pl.col("AMBITO_NOME").is_not_null() & (pl.col("AMBITO_NOME") != "")
-    )
+    df_result = df_result.filter(pl.col("AMBITO_NOME").is_not_null() & (pl.col("AMBITO_NOME") != ""))
 
     timestamp_exprs = handle_timestamps()
 
@@ -1746,9 +1604,7 @@ def migrate_udo_types(ctx: ETLContext) -> None:
         pl.col("AMBITO_DESCR").alias("scope_description"),
         pl.col("AGGIUNGI_DISCIPLINE").alias("has_disciplines"),
         pl.col("AGGIUNGI_DISCIPLINE_AZ_SAN").alias("has_disciplines_only_healthcare_company"),
-        pl.col("AGGIUNGI_DISCIPLINE_PUB_PRIV").alias(
-            "has_disciplines_only_public_or_private_company"
-        ),
+        pl.col("AGGIUNGI_DISCIPLINE_PUB_PRIV").alias("has_disciplines_only_public_or_private_company"),
         pl.col("AGGIUNGI_BRANCHE").alias("has_branches"),
         pl.col("AGGIUNGI_BRANCHE_AZ_SAN").alias("has_branches_only_healthcare_company"),
         pl.col("AGGIUNGI_BRANCHE_PUB_PRIV").alias("has_branches_only_public_or_private_company"),
@@ -1796,12 +1652,8 @@ def migrate_udos(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_udo_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UDO_MODEL")
-    df_sede_oper_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL"
-    )
-    df_struttura_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL"
-    )
+    df_sede_oper_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.SEDE_OPER_MODEL")
+    df_struttura_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.STRUTTURA_MODEL")
     df_uo_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UO_MODEL")
 
     ### TRANSFORM ###
@@ -1809,17 +1661,9 @@ def migrate_udos(ctx: ETLContext) -> None:
 
     df_result = df_udo_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("DESCR")
-        .str.strip_chars()
-        .str.replace_all("\n", "")
-        .str.replace_all("\r", "")
-        .alias("name"),
+        pl.col("DESCR").str.strip_chars().str.replace_all("\n", "").str.replace_all("\r", "").alias("name"),
         pl.col("STATO").str.strip_chars().str.to_uppercase().fill_null("NUOVA").alias("status"),
-        pl.col("ID_UNIVOCO")
-        .str.strip_chars()
-        .str.replace_all("\n", "")
-        .str.replace_all("\r", "")
-        .alias("code"),
+        pl.col("ID_UNIVOCO").str.strip_chars().str.replace_all("\n", "").str.replace_all("\r", "").alias("code"),
         pl.col("ID_TIPO_UDO_22_FK").str.strip_chars().alias("udo_type_id"),
         pl.col("ID_SEDE_FK").str.strip_chars().alias("operational_office_id"),
         pl.col("ID_EDIFICIO_STR_FK").str.strip_chars().alias("building_id"),
@@ -1828,18 +1672,11 @@ def migrate_udos(ctx: ETLContext) -> None:
         pl.col("PROGRESSIVO").str.strip_chars().replace("-", None).alias("progressive"),
         pl.col("CODICE_FLUSSO_MINISTERIALE").str.strip_chars().alias("ministerial_code"),
         pl.col("COD_FAR_FAD").str.strip_chars().alias("farfad_code"),
-        pl.when(pl.col("SIO").str.strip_chars().str.to_lowercase() == "y")
-        .then(True)
-        .otherwise(False)
-        .alias("is_sio"),
+        pl.when(pl.col("SIO").str.strip_chars().str.to_lowercase() == "y").then(True).otherwise(False).alias("is_sio"),
         pl.col("STAREP").str.strip_chars().alias("starep_code"),
         pl.col("CDC").str.strip_chars().alias("cost_center"),
         pl.col("PAROLE_CHIAVE").str.strip_chars().alias("keywords"),
-        pl.col("ANNOTATIONS")
-        .str.strip_chars()
-        .str.replace_all("\n", "")
-        .str.replace_all("\r", "")
-        .alias("notes"),
+        pl.col("ANNOTATIONS").str.strip_chars().str.replace_all("\n", "").str.replace_all("\r", "").alias("notes"),
         pl.when(pl.col("WEEK").str.strip_chars().str.to_lowercase() == "y")
         .then(True)
         .otherwise(False)
@@ -1850,10 +1687,7 @@ def migrate_udos(ctx: ETLContext) -> None:
         .otherwise(False)
         .alias("is_module"),
         pl.lit(None).alias("organigram_node_id"),  # TODO: Link with poa-service
-        pl.when(pl.col("PROVENIENZA_UO") == "ORGANIGRAMMA_TREE")
-        .then(None)
-        .otherwise(pl.col("ID_UO"))
-        .alias("ID_UO"),
+        pl.when(pl.col("PROVENIENZA_UO") == "ORGANIGRAMMA_TREE").then(None).otherwise(pl.col("ID_UO")).alias("ID_UO"),
         timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
@@ -1897,9 +1731,7 @@ def migrate_udo_production_factors(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_bind_udo_fatt_prod = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_FATT_PROD"
-    )
+    df_bind_udo_fatt_prod = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_FATT_PROD")
 
     ### TRANSFORM ###
     df_result = df_bind_udo_fatt_prod.select(
@@ -1919,9 +1751,7 @@ def migrate_udo_type_production_factor_types(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_bind_tipo_22_tipo_fatt = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_TIPO_FATT"
-    )
+    df_bind_tipo_22_tipo_fatt = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_TIPO_22_TIPO_FATT")
 
     ### TRANSFORM ###
     df_result = df_bind_tipo_22_tipo_fatt.select(
@@ -1941,15 +1771,9 @@ def migrate_udo_specialties(ctx: ETLContext) -> None:
         ctx: The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_bind_udo_branca = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA"
-    )
-    df_bind_udo_branca_altro = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO"
-    )
-    df_bind_udo_disciplina = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA"
-    )
+    df_bind_udo_branca = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA")
+    df_bind_udo_branca_altro = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_BRANCA_ALTRO")
+    df_bind_udo_disciplina = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.BIND_UDO_DISCIPLINA")
     df_uo_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UO_MODEL")
 
     ### TRANSFORM ###
@@ -1985,9 +1809,7 @@ def migrate_udo_specialties(ctx: ETLContext) -> None:
         pl.col("ID_ARTIC_BRANCA_ALTRO_FK").str.strip_chars().alias("specialty_id"),
         pl.col("ID_UDO_FK").str.strip_chars().alias("udo_id"),
     )
-    df_result_branches = pl.concat(
-        [df_bind_udo_branca_tr, df_bind_udo_branca_altro_tr], how="vertical_relaxed"
-    )
+    df_result_branches = pl.concat([df_bind_udo_branca_tr, df_bind_udo_branca_altro_tr], how="vertical_relaxed")
 
     df_bind_udo_disciplina_tr = df_bind_udo_disciplina.filter(
         pl.col(
@@ -2088,9 +1910,7 @@ def migrate_udos_history(ctx: ETLContext) -> None:
     )
 
     # Replace specific status values
-    df_stato_udo = df_stato_udo.with_columns(
-        pl.col("status").replace("AUTORIZZATA/ACCREDITATA", "AUTORIZZATA")
-    )
+    df_stato_udo = df_stato_udo.with_columns(pl.col("status").replace("AUTORIZZATA/ACCREDITATA", "AUTORIZZATA"))
 
     # Map supply information from UDO data
     df_udo = df_udo.select(
@@ -2193,9 +2013,7 @@ def migrate_users(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_utente_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
-    df_anagrafica_utente_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL"
-    )
+    df_anagrafica_utente_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL")
     df_municipalities = extract_data(ctx.pg_engine_core, "SELECT * FROM municipalities")
 
     ### TRANSFORM ###
@@ -2284,9 +2102,7 @@ def migrate_permissions(ctx: ETLContext) -> None:
     df = pl.read_csv("seed/permissions.csv")
 
     ### LOAD ###
-    df.write_database(
-        table_name="permissions", connection=ctx.pg_engine_core, if_table_exists="append"
-    )
+    df.write_database(table_name="permissions", connection=ctx.pg_engine_core, if_table_exists="append")
     logging.info("Loaded seed data into permissions table")
 
 
@@ -2305,9 +2121,7 @@ def migrate_user_companies(ctx: ETLContext) -> None:
     """
     ### EXTRACT ###
     df_utente_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
-    df_operatore_model = extract_data(
-        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.OPERATORE_MODEL"
-    )
+    df_operatore_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.OPERATORE_MODEL")
 
     ### TRANSFORM ###
     # Get timestamp expressions with direct_disabled_col
@@ -2356,9 +2170,7 @@ def migrate_user_companies(ctx: ETLContext) -> None:
     )
 
     # Handle duplicates
-    df_duplicates = df_combined.filter(
-        pl.col("user_id").is_duplicated() & pl.col("company_id").is_duplicated()
-    )
+    df_duplicates = df_combined.filter(pl.col("user_id").is_duplicated() & pl.col("company_id").is_duplicated())
 
     # Create id mapping for duplicates
     id_map = {}

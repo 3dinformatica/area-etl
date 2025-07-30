@@ -132,9 +132,7 @@ def extract_data(engine: Engine, query: str) -> pl.DataFrame:
     return df
 
 
-def extract_data_from_csv(
-    file_path: str | os.PathLike, schema_overrides: dict | None = None
-) -> pl.DataFrame:
+def extract_data_from_csv(file_path: str | os.PathLike, schema_overrides: dict | None = None) -> pl.DataFrame:
     """
     Extract data from a CSV file and log the extraction.
 
@@ -221,16 +219,12 @@ def export_tables_to_csv(engine: Engine, tables: list[str], export_dir: str = "e
         df = extract_data(engine, f"SELECT * FROM {table}")
         csv_path = export_path / f"{table}.csv"
         df.to_pandas().to_csv(csv_path, index=False)
-        logging.info(
-            f"Exported {df.height} rows from {engine} database table {table} to {csv_path}"
-        )
+        logging.info(f"Exported {df.height} rows from {engine} database table {table} to {csv_path}")
 
     logging.info(f"Export completed. CSV files saved in {export_path} directory")
 
 
-def handle_created_at(
-    creation_col: str = "CREATION", current_time: datetime | None = None
-) -> pl.Expr:
+def handle_created_at(creation_col: str = "CREATION", current_time: datetime | None = None) -> pl.Expr:
     """
     Handle the created_at timestamp field transformation.
 
@@ -419,13 +413,7 @@ def handle_id(source_id_col: str = "CLIENTID", target_id_col: str = "id") -> pl.
     pl.Expr
         A polars expression that can be used in a select statement
     """
-    return (
-        pl.col(source_id_col)
-        .cast(pl.String)
-        .str.strip_chars()
-        .str.to_lowercase()
-        .alias(target_id_col)
-    )
+    return pl.col(source_id_col).cast(pl.String).str.strip_chars().str.to_lowercase().alias(target_id_col)
 
 
 def map_value(value: str | None, mapping: dict[str, str], default: str | None = None) -> str | None:
@@ -453,9 +441,7 @@ def map_value(value: str | None, mapping: dict[str, str], default: str | None = 
     return mapping.get(value, default)
 
 
-def handle_enum_mapping(
-    source_col: str, target_col: str, mapping_dict: dict, default: str | None = None
-) -> pl.Expr:
+def handle_enum_mapping(source_col: str, target_col: str, mapping_dict: dict, default: str | None = None) -> pl.Expr:
     """
     Map values from a source column to standardized values using a mapping dictionary.
 
