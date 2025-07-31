@@ -492,3 +492,79 @@ def format_elapsed_time(start_time: datetime) -> str:
     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{int(hours)}h {int(minutes)}m {seconds:.2f}s"
+
+
+def handle_text(source_col: str, target_col: str) -> pl.Expr:
+    """
+    Clean and standardize text data from a source column.
+
+    This function applies several text cleaning operations:
+    - Converts to string type
+    - Strips leading and trailing whitespaces
+    - Removes newlines and carriage returns
+    - Normalizes multiple whitespaces to a single space
+
+    Parameters
+    ----------
+    source_col : str
+        The name of the source column containing text to clean
+    target_col : str
+        The name to give to the resulting column
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return (
+        pl.col(source_col)
+        .cast(pl.String)
+        .str.strip_chars()
+        .str.replace_all("\n", "")
+        .str.replace_all("\r", "")
+        .str.replace_all(r"\s+", " ")
+        .alias(target_col)
+    )
+
+
+def handle_year(source_col: str, target_col: str) -> pl.Expr:
+    """
+    Convert a string column to an integer year.
+
+    This function strips whitespace from the source column and casts it to a 32-bit integer.
+
+    Parameters
+    ----------
+    source_col : str
+        The name of the source column containing year data as string
+    target_col : str
+        The name to give to the resulting column
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return pl.col(source_col).str.strip_chars().cast(pl.Int32).alias(target_col)
+
+
+def handle_datetime(source_col: str, target_col: str) -> pl.Expr:
+    """
+    Standardize datetime column by removing timezone information.
+
+    This function removes timezone information from a datetime column,
+    resolving ambiguous times to the earliest possible time.
+
+    Parameters
+    ----------
+    source_col : str
+        The name of the source column containing datetime data
+    target_col : str
+        The name to give to the resulting column
+
+    Returns
+    -------
+    pl.Expr
+        A polars expression that can be used in a select statement
+    """
+    return pl.col(source_col).dt.replace_time_zone(None, ambiguous="earliest").alias(target_col)
