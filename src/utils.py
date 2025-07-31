@@ -6,6 +6,7 @@ from pathlib import Path
 
 import polars as pl
 from cx_Oracle import init_oracle_client
+from minio import Minio
 from sqlalchemy import Engine, create_engine, text
 
 from settings import settings
@@ -30,6 +31,8 @@ class ETLContext:
         SQLAlchemy engine for PostgreSQL A.Re.A. Cronos service database connection
     pg_engine_auac : Engine
         SQLAlchemy engine for PostgreSQL A.Re.A. Au.Ac. service database connection
+    minio_client : Minio
+        MinIO client for object storage operations
     """
 
     oracle_engine_area: Engine
@@ -38,6 +41,7 @@ class ETLContext:
     pg_engine_poa: Engine
     pg_engine_cronos: Engine
     pg_engine_auac: Engine
+    minio_client: Minio
 
 
 def setup_logging() -> None:
@@ -68,6 +72,7 @@ def setup_connections() -> ETLContext:
 
     Sets up an Oracle client and creates database engine connections
     for two Oracle databases (area and poa) and all the PostgreSQL databases of the services.
+    Also initializes a MinIO client for object storage operations.
 
     - oracle_engine_area: Connection to the main A.Re.A. services Oracle database
     - oracle_engine_poa: Connection to the POA A.Re.A. services Oracle database
@@ -75,11 +80,12 @@ def setup_connections() -> ETLContext:
     - pg_engine_poa: Connection to the A.Re.A. POA service PostgreSQL database
     - pg_engine_cronos: Connection to the A.Re.A. Cronos service PostgreSQL database
     - pg_engine_auac: Connection to the A.Re.A. Au.Ac. service PostgreSQL database
+    - minio_client: MinIO client for object storage operations
 
     Returns
     -------
     ETLContext
-        Context object containing all database connections
+        Context object containing all database connections and the MinIO client
     """
     init_oracle_client(lib_dir=settings.ORACLE_CLIENT_LIB_DIR)
     oracle_engine_area = create_engine(settings.ORACLE_URI_AREA)
@@ -88,6 +94,15 @@ def setup_connections() -> ETLContext:
     pg_engine_poa = create_engine(settings.PG_URI_POA)
     pg_engine_cronos = create_engine(settings.PG_URI_CRONOS)
     pg_engine_auac = create_engine(settings.PG_URI_AUAC)
+    minio_client = Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=False,
+        # Set http_client to None to use the default client with optimized settings
+        http_client=None,
+    )
+
     return ETLContext(
         oracle_engine_area=oracle_engine_area,
         oracle_engine_poa=oracle_engine_poa,
@@ -95,6 +110,7 @@ def setup_connections() -> ETLContext:
         pg_engine_poa=pg_engine_poa,
         pg_engine_cronos=pg_engine_cronos,
         pg_engine_auac=pg_engine_auac,
+        minio_client=minio_client,
     )
 
 

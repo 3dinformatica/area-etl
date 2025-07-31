@@ -6,10 +6,8 @@ import time
 import uuid
 
 import polars as pl
-from minio import Minio
 from tqdm import tqdm
 
-from settings import settings
 from utils import (
     ETLContext,
     extract_data,
@@ -892,20 +890,11 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
     df_result_without_files = df_result.filter(pl.col("ID_ALLEGATO_FK").is_null())
     logging.info(f"There are {df_result_with_files.height}/{df_result.height} files with attachments")
 
-    # Initialize Minio client with optimized connection settings
-    minio_client = Minio(
-        settings.MINIO_ENDPOINT,
-        access_key=settings.MINIO_ACCESS_KEY,
-        secret_key=settings.MINIO_SECRET_KEY,
-        secure=False,
-        # Set http_client to None to use the default client with optimized settings
-        http_client=None,
-    )
-
-    found = minio_client.bucket_exists(bucket_name)
+    # Use the MinIO client from the ETLContext
+    found = ctx.minio_client.bucket_exists(bucket_name)
 
     if not found:
-        minio_client.make_bucket(bucket_name)
+        ctx.minio_client.make_bucket(bucket_name)
         logging.info(f'Created MinIO bucket "{bucket_name}"')
     else:
         logging.info(f'MinIO bucket "{bucket_name}" already exists')
@@ -942,7 +931,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
             # Optimize part_size for better performance
             # Using a larger part_size can improve upload speed for large files
             # Default is 5MB, we're using 16MB for better throughput
-            minio_client.put_object(
+            ctx.minio_client.put_object(
                 bucket_name=bucket_name,
                 object_name=object_name,
                 data=io.BytesIO(file_bytes),
