@@ -242,7 +242,7 @@ CREATE TABLE public.resolutions
     id                   UUID                     DEFAULT gen_random_uuid() NOT NULL,
     name                 TEXT                                               NOT NULL,
     category             VARCHAR(100)                                       NOT NULL,
-    file_id              TEXT                                               NOT NULL,
+    file_id              TEXT,
     procedure_type       VARCHAR(100),
     number               TEXT,
     year                 INTEGER,
