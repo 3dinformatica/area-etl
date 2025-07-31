@@ -831,7 +831,13 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
 
     df_atto_model_tr = df_atto_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.lit(None).alias("name"),
+        (pl.col("ANNO") + "-" + pl.col("NUMERO"))
+        .cast(pl.String)
+        .str.strip_chars()
+        .str.replace_all("\n", "")
+        .str.replace_all("\r", "")
+        .str.replace_all(r"\s+", " ")
+        .alias("name"),
         pl.lit("UDO").alias("category"),
         pl.col("ID_ALLEGATO_FK"),  # Will be processed by put_resolution_attachments
         pl.col("ID_TIPO_FK").str.strip_chars(),
