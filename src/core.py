@@ -759,6 +759,11 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
     - Optimized Minio client configuration
     - Real-time progress tracking using tqdm
     - Performance metrics logging
+    - Reliable file_id updates using a mapping dataframe approach
+      (creates a mapping between original BINARY_ATTACHMENTS_CLIENT_ID and new MinIO object_id)
+    - Deduplication of files: If multiple rows reference the same file (same ID_ALLEGATO_FK),
+      the file is uploaded only once to MinIO, and all rows are updated to reference
+      the same MinIO object_id
 
     Parameters
     ----------
@@ -786,7 +791,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         handle_enum_mapping(
             source_col="TIPO_DELIBERA", target_col="category", mapping_dict=RESOLUTION_CATEGORY_MAPPING
         ).fill_null("ALTRO"),
-        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by put_resolution_attachments
+        pl.col("ID_ALLEGATO_FK"),  # Will be processed by put_resolution_attachments
         handle_text(source_col="NUMERO", target_col="number"),
         handle_year(source_col="ANNO", target_col="year"),
         handle_datetime(source_col="INIZIO_VALIDITA", target_col="valid_from"),
@@ -828,7 +833,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         pl.col("CLIENTID").str.strip_chars().alias("id"),
         pl.lit(None).alias("name"),
         pl.lit("UDO").alias("category"),
-        pl.col("ID_ALLEGATO_FK").alias("file_id"),  # Will be processed by put_resolution_attachments
+        pl.col("ID_ALLEGATO_FK"),  # Will be processed by put_resolution_attachments
         pl.col("ID_TIPO_FK").str.strip_chars(),
         pl.col("ID_TIPO_PROC_FK"),
         handle_text(source_col="NUMERO", target_col="number"),
@@ -877,8 +882,8 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
     )
 
     df_result = pl.concat([df_result_delibera, df_result_atto], how="diagonal_relaxed")
-    df_result_with_files = df_result.filter(pl.col("file_id").is_not_null())
-    df_result_without_files = df_result.filter(pl.col("file_id").is_null())
+    df_result_with_files = df_result.filter(pl.col("ID_ALLEGATO_FK").is_not_null())
+    df_result_without_files = df_result.filter(pl.col("ID_ALLEGATO_FK").is_null())
     logging.info(f"There are {df_result_with_files.height}/{df_result.height} files with attachments")
 
     # Initialize Minio client with optimized connection settings
@@ -905,14 +910,22 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
     # 3. Improved Client Config: Optimized Minio client initialization
     # 4. Progress Tracking: Added real-time progress bar using tqdm and performance metrics
     # 5. Error Handling: Added robust error handling for each file upload
+    # 6. Reliable DataFrame Updates: Using a mapping dataframe approach to correctly update file_id
+    #    - Creates a mapping between original BINARY_ATTACHMENTS_CLIENT_ID and new MinIO object_id
+    #    - Joins this mapping with the original dataframe for reliable updates
+    # 7. Deduplication: Ensures files with duplicate ID_ALLEGATO_FK are uploaded only once to MinIO
+    #    - Extracts unique ID_ALLEGATO_FK values before processing
+    #    - Creates a single MinIO object for each unique file
+    #    - All rows referencing the same file are updated to use the same MinIO object_id
 
     # Define a function to process a single file
-    def process_file(row_idx, row_data):
-        file_id = row_data["file_id"]
+    def process_file(row_data):
+        original_file_id = row_data["ID_ALLEGATO_FK"]
 
         try:
             binary_attachments_appl_row = pl.read_database(
-                f"SELECT * FROM AUAC_USR.BINARY_ATTACHMENTS_APPL WHERE CLIENTID='{file_id}'", ctx.oracle_engine_area
+                f"SELECT * FROM AUAC_USR.BINARY_ATTACHMENTS_APPL WHERE CLIENTID='{original_file_id}'",
+                ctx.oracle_engine_area,
             )
             file_name = binary_attachments_appl_row.item(row=0, column="NOME")
             file_mime_type = binary_attachments_appl_row.item(row=0, column="TIPO")
@@ -932,50 +945,80 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
                 content_type=content_type,
                 metadata={"name": cleaned_file_name},
             )
-            return row_idx, object_name
+            # Return the original file_id and the new object_name
+            return original_file_id, object_name
         except Exception as e:
-            logging.error(f"Error processing file {file_id}: {e!s}")
-            return row_idx, None
+            logging.error(f"Error processing file {original_file_id}: {e!s}")
+            return original_file_id, None
 
-    # Create a dictionary to store updated file_ids
-    updated_file_ids = {}
+    # Extract unique ID_ALLEGATO_FK values to avoid uploading duplicate files
+    unique_file_ids = df_result_with_files.select("ID_ALLEGATO_FK").unique().to_series().to_list()
+    total_unique_files = len(unique_file_ids)
     total_files = df_result_with_files.height
 
-    logging.info(f"Starting parallel upload of {total_files} files to MinIO")
+    logging.info(f"Found {total_unique_files} unique files out of {total_files} total attachments")
+
+    # Create a list to store mapping between original file_ids and new object_ids
+    file_id_mappings = []
+
+    logging.info(f"Starting parallel upload of {total_unique_files} unique files to MinIO")
     start_time = time.time()
 
     # Process files in parallel with a ThreadPoolExecutor
     # Using 10 workers for parallel processing
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        # Submit all file processing tasks
-        future_to_idx = {
-            executor.submit(process_file, i, row): i for i, row in enumerate(df_result_with_files.iter_rows(named=True))
+        # Create a list of dictionaries with just the ID_ALLEGATO_FK for each unique file
+        unique_file_data = [{"ID_ALLEGATO_FK": file_id} for file_id in unique_file_ids]
+
+        # Submit tasks only for unique files
+        future_to_file_id = {
+            executor.submit(process_file, file_data): file_data["ID_ALLEGATO_FK"] for file_data in unique_file_data
         }
 
         # Use tqdm for progress tracking
-        with tqdm(total=total_files, desc="Uploading files to MinIO", unit="file") as pbar:
+        with tqdm(total=total_unique_files, desc="Uploading unique files to MinIO", unit="file") as pbar:
             # Process results as they complete
-            for future in concurrent.futures.as_completed(future_to_idx):
-                idx, object_name = future.result()
+            for future in concurrent.futures.as_completed(future_to_file_id):
+                original_file_id, object_name = future.result()
                 if object_name:
-                    updated_file_ids[idx] = object_name
+                    # Store the mapping between original file_id and new object_id
+                    file_id_mappings.append({"BINARY_ATTACHMENTS_CLIENT_ID": original_file_id, "file_id": object_name})
 
                 # Update progress bar
                 pbar.update(1)
 
     end_time = time.time()
     duration = end_time - start_time
-    files_per_second = total_files / duration if duration > 0 else 0
+    files_per_second = total_unique_files / duration if duration > 0 else 0
     logging.info(
-        f"Completed upload of {len(updated_file_ids)}/{total_files} files in {duration:.2f} seconds ({files_per_second:.2f} files/sec)"
+        f"Completed upload of {len(file_id_mappings)}/{total_unique_files} unique files in {duration:.2f} seconds ({files_per_second:.2f} files/sec)"
     )
 
-    # Update the dataframe with new file_ids
-    for i, row in enumerate(df_result_with_files.iter_rows(named=True)):
-        if i in updated_file_ids:
-            row["file_id"] = updated_file_ids[i]
+    # Log information about deduplication
+    duplicates_saved = total_files - total_unique_files
+    if duplicates_saved > 0:
+        logging.info(f"Avoided uploading {duplicates_saved} duplicate files to MinIO")
 
-    df_result = pl.concat([df_result_with_files, df_result_without_files], how="diagonal_relaxed")
+    # Create a mapping dataframe with BINARY_ATTACHMENTS_CLIENT_ID and file_id columns
+    df_file_id_mappings = pl.DataFrame(file_id_mappings)
+
+    # Join the mapping dataframe with the original dataframe based on ID_ALLEGATO_FK
+    df_result_with_files_minio = df_result_with_files.join(
+        df_file_id_mappings, left_on="ID_ALLEGATO_FK", right_on="BINARY_ATTACHMENTS_CLIENT_ID", how="left"
+    )
+
+    # Verify that all rows have a file_id
+    assert df_result_with_files_minio.filter(pl.col("file_id").is_not_null()).height == df_result_with_files.height
+
+    df_result_with_files_minio = df_result_with_files_minio.drop("ID_ALLEGATO_FK")
+    df_result_without_files = df_result_without_files.drop("ID_ALLEGATO_FK")
+
+    df_result = pl.concat(
+        [
+            df_result_with_files_minio,
+        ],
+        how="diagonal_relaxed",
+    )
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_result, "resolutions")
