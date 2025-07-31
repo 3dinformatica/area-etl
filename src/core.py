@@ -899,6 +899,12 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
     else:
         logging.info(f'MinIO bucket "{bucket_name}" already exists')
 
+    # Empty the bucket before filling it
+    objects_to_delete = ctx.minio_client.list_objects(bucket_name, recursive=True)
+    for obj in objects_to_delete:
+        ctx.minio_client.remove_object(bucket_name, obj.object_name)
+    logging.info(f'Emptied MinIO bucket "{bucket_name}" before filling it')
+
     # PERFORMANCE OPTIMIZATION SUMMARY:
     # 1. Parallel Processing: Using ThreadPoolExecutor to upload multiple files concurrently
     # 2. Optimized Part Size: Increased from default 5MB to 16MB for better throughput
