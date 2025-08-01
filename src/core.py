@@ -1874,10 +1874,14 @@ def migrate_users(ctx: ETLContext) -> None:
         handle_datetime(source_col="CARTA_IDENT_SCAD", target_col="identity_doc_expiry_date"),
         handle_text(source_col="PROFESSIONE", target_col="job"),
         # pl.col("ID_UO_FK").alias("operational_unit_id"), # FIXME: Non trova le references
+        timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
-        timestamp_exprs["disabled_at"],
     )
+
+    df_result = df_result.filter(
+        pl.col("username").is_not_null()
+    )  # FIXME: Togliere! Controllare dati su db orginale con Adrian e nel caso togliere utente
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_result, "users")
