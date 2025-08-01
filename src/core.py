@@ -1801,7 +1801,7 @@ def migrate_udos_history(ctx: ETLContext) -> None:
         return
 
     ### LOAD ###
-    load_data(ctx.pg_engine_core, df_result, "udo_status_history")
+    load_data(ctx.pg_engine_core, df_result, "udos_history")
 
 
 ### USER ###
@@ -1831,69 +1831,50 @@ def migrate_users(ctx: ETLContext) -> None:
     df_municipalities = extract_data(ctx.pg_engine_core, "SELECT * FROM municipalities")
 
     ### TRANSFORM ###
-    df_anagrafica_utente_model = df_anagrafica_utente_model.select(
-        pl.col("CLIENTID").alias("ID_ANAGR_FK"),
-        pl.col("NOME").str.strip_chars(),
-        pl.col("COGNOME").str.strip_chars(),
-        pl.col("CFISC").str.strip_chars(),
-        pl.col("EMAIL").str.strip_chars().fill_null("-"),
-        pl.col("DATA_NASCITA"),
-        pl.col("COD_LUOGO_NASCITA").str.strip_chars(),
-        pl.col("VIA_PIAZZA").str.strip_chars(),
-        pl.col("CIVICO").str.strip_chars(),
-        pl.col("TELEFONO").str.strip_chars(),
-        pl.col("CELLULARE").str.strip_chars(),
-        pl.col("CARTA_IDENT_NUM").str.strip_chars(),
-        pl.col("CARTA_IDENT_SCAD"),
-        pl.col("PROFESSIONE").str.strip_chars(),
-    )
-    df_municipalities = df_municipalities.select(
-        pl.col("istat_code").alias("COD_LUOGO_NASCITA"),
-        pl.col("name").alias("birth_place"),
-    )
-    df_joined = df_anagrafica_utente_model.join(
-        df_municipalities,
-        left_on="COD_LUOGO_NASCITA",
-        right_on="COD_LUOGO_NASCITA",
-        how="left",
-    )
     timestamp_exprs = handle_timestamps(direct_disabled_col="DATA_DISABILITATO")
 
-    df_result = (
-        df_joined.join(
-            df_utente_model,
-            left_on="ID_ANAGR_FK",
-            right_on="ID_ANAGR_FK",
-            how="left",
-        )
-        .select(
-            pl.col("USERNAME_CAS").str.strip_chars().alias("username"),
-            handle_enum_mapping(
-                source_col="RUOLO",
-                target_col="role",
-                mapping_dict=USER_ROLE_MAPPING,
-                default="OPERATOR",
-            ).fill_null("OPERATOR"),
-            pl.col("NOME").str.strip_chars().alias("first_name"),
-            pl.col("COGNOME").str.strip_chars().alias("last_name"),
-            pl.col("CFISC").str.strip_chars().alias("tax_code"),
-            pl.col("EMAIL").str.strip_chars().alias("email"),
-            pl.col("DATA_NASCITA").alias("birth_date"),
-            pl.col("birth_place"),
-            pl.col("VIA_PIAZZA").str.strip_chars().alias("street_name"),
-            pl.col("CIVICO").str.strip_chars().alias("street_number"),
-            pl.col("TELEFONO").str.strip_chars().alias("phone"),
-            pl.col("CELLULARE").str.strip_chars().alias("mobile_phone"),
-            pl.col("CARTA_IDENT_NUM").str.strip_chars().alias("identity_doc_number"),
-            pl.col("CARTA_IDENT_SCAD").alias("identity_doc_expiry_date"),
-            pl.col("PROFESSIONE").str.strip_chars().alias("job"),
-            # pl.col("ID_UO_FK").alias("operational_unit_id"), FIXME: Fix reference to table
-            # Get timestamp expressions with direct_disabled_col
-            timestamp_exprs["created_at"],
-            timestamp_exprs["updated_at"],
-            timestamp_exprs["disabled_at"],
-        )
-        .filter(pl.col("username").is_not_null())
+    df_municipalities_tr = df_municipalities.select(
+        pl.col("istat_code"),
+        pl.col("name").alias("birth_place"),
+    )
+
+    df_joined = df_anagrafica_utente_model.join(
+        df_municipalities_tr,
+        left_on="COD_LUOGO_NASCITA",
+        right_on="istat_code",
+        how="left",
+    ).join(
+        df_utente_model,
+        left_on="CLIENTID",
+        right_on="ID_ANAGR_FK",
+        how="left",
+    )
+
+    df_result = df_joined.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        handle_text(source_col="USERNAME_CAS", target_col="username"),
+        handle_enum_mapping(
+            source_col="RUOLO",
+            target_col="role",
+            mapping_dict=USER_ROLE_MAPPING,
+            default="OPERATOR",
+        ).fill_null("OPERATOR"),
+        handle_text(source_col="NOME", target_col="first_name"),
+        handle_text(source_col="COGNOME", target_col="last_name"),
+        handle_text(source_col="CFISC", target_col="tax_code"),
+        handle_text(source_col="EMAIL", target_col="email").fill_null("-").alias("email"),
+        handle_datetime(source_col="DATA_NASCITA", target_col="birth_date"),
+        handle_text(source_col="VIA_PIAZZA", target_col="street_name"),
+        handle_text(source_col="CIVICO", target_col="street_number"),
+        handle_text(source_col="TELEFONO", target_col="phone"),
+        handle_text(source_col="CELLULARE", target_col="mobile_phone"),
+        handle_text(source_col="CARTA_IDENT_NUM", target_col="identity_doc_number"),
+        handle_datetime(source_col="CARTA_IDENT_SCAD", target_col="identity_doc_expiry_date"),
+        handle_text(source_col="PROFESSIONE", target_col="job"),
+        pl.col("ID_UO_FK").alias("operational_unit_id"),
+        timestamp_exprs["created_at"],
+        timestamp_exprs["updated_at"],
+        timestamp_exprs["disabled_at"],
     )
 
     ### LOAD ###
