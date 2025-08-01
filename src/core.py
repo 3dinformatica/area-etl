@@ -1044,7 +1044,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
             return name
 
     # Apply the function to handle duplicate names
-    df_result = df_result.with_columns(pl.col("name").map_elements(handle_duplicate_name))
+    df_result = df_result.with_columns(pl.col("name").map_elements(handle_duplicate_name, return_dtype=pl.String))
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_result, "resolutions")
@@ -1661,6 +1661,7 @@ def migrate_udo_specialties(ctx: ETLContext) -> None:
 
 
 def migrate_udo_resolutions(ctx: ETLContext) -> None:
+    # TODO: Non esiste la tabella nello schema!!
     """
     Migrates resolution data for UDOs.
 
@@ -1681,6 +1682,7 @@ def migrate_udo_resolutions(ctx: ETLContext) -> None:
 
 
 def migrate_udos_history(ctx: ETLContext) -> None:
+    # TODO: Da rivedere completamente
     """
     Migrates UDO status history data.
 
@@ -1871,7 +1873,7 @@ def migrate_users(ctx: ETLContext) -> None:
         handle_text(source_col="CARTA_IDENT_NUM", target_col="identity_doc_number"),
         handle_datetime(source_col="CARTA_IDENT_SCAD", target_col="identity_doc_expiry_date"),
         handle_text(source_col="PROFESSIONE", target_col="job"),
-        pl.col("ID_UO_FK").alias("operational_unit_id"),
+        # pl.col("ID_UO_FK").alias("operational_unit_id"), # FIXME: Non trova le references
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
         timestamp_exprs["disabled_at"],
@@ -2030,7 +2032,5 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_udo_production_factors(ctx)
     migrate_udo_type_production_factor_types(ctx)
     migrate_udo_specialties(ctx)
-    migrate_udo_resolutions(ctx)
-    migrate_udos_history(ctx)
     migrate_users(ctx)
     migrate_user_companies(ctx)
