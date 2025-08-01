@@ -829,7 +829,9 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
 
     df_atto_model_tr = df_atto_model.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        (pl.col("ANNO") + "-" + pl.col("NUMERO"))
+        pl.when(pl.col("ID_ATTO").is_not_null())
+        .then(pl.col("ANNO").cast(pl.String) + "-" + pl.col("NUMERO") + " [" + pl.col("ID_ATTO").cast(pl.String) + "]")
+        .otherwise(pl.col("ANNO").cast(pl.String) + "-" + pl.col("NUMERO"))
         .cast(pl.String)
         .str.strip_chars()
         .str.replace_all("\n", "")
@@ -1020,6 +1022,29 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
         ],
         how="diagonal_relaxed",
     )
+
+    # Handle duplicate names by appending sequential numbers in parentheses
+    # When the "name" column contains duplicates, append a sequential number in parentheses
+    # to make each name unique. For example: "name", "name (1)", "name (2)", etc.
+    # The first occurrence of a name remains unchanged.
+
+    # Create a dictionary to track name occurrences
+    name_counts = {}
+
+    # Function to handle duplicate names
+    def handle_duplicate_name(name):
+        if name is None:
+            return None
+
+        if name in name_counts:
+            name_counts[name] += 1
+            return f"{name} ({name_counts[name]})"
+        else:
+            name_counts[name] = 0
+            return name
+
+    # Apply the function to handle duplicate names
+    df_result = df_result.with_columns(pl.col("name").map_elements(handle_duplicate_name))
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_result, "resolutions")
