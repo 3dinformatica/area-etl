@@ -2025,8 +2025,6 @@ def migrate_core(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     truncate_core_tables(ctx)
-    migrate_resolution_types(ctx)
-    migrate_resolutions(ctx)
     migrate_regions(ctx)
     migrate_provinces(ctx)
     migrate_municipalities(ctx)
@@ -2051,5 +2049,7 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_udo_specialties(ctx)
     migrate_udo_resolutions(ctx)
     migrate_udos_history(ctx)
+    migrate_resolution_types(ctx)
+    migrate_resolutions(ctx)
     migrate_users(ctx)
     migrate_user_companies(ctx)
