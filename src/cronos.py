@@ -2,7 +2,7 @@ import logging
 
 import polars as pl
 
-from utils import ETLContext, extract_data, load_data, truncate_pg_table
+from utils import ETLContext, extract_data, handle_text, load_data, truncate_pg_table
 
 CRONOS_TABLES = [
     "cronos_companies",
@@ -33,16 +33,14 @@ def truncate_cronos_tables(ctx: ETLContext) -> None:
 
 
 def migrate_cronos_taxonomies(ctx: ETLContext) -> None:
-    """
-    Migrate taxonomy data from Oracle to the Cronos service database.
+    """Migrate "cronos_taxonomies" data.
 
-    This function extracts taxonomy data from the Oracle database,
-    transforms it by selecting and renaming required columns,
-    and loads it into the Cronos taxonomies table.
+    Migrate data from ORACLE table "AUAC_USR.CLASSIFICAZIONE_PROGRAMMAZIONE" to Cronos service PostgreSQL table
+    "cronos_taxonomies".
 
     Parameters
     ----------
-    ctx : ETLContext
+    ctx: ETLContext
         The ETL context containing database connections
     """
     ### EXTRACT ###
@@ -53,11 +51,37 @@ def migrate_cronos_taxonomies(ctx: ETLContext) -> None:
     ### TRANSFORM ###
     df_result = df_classificazione_programmazione.select(
         pl.col("CLIENTID").str.strip_chars().alias("id"),
-        pl.col("NOME").str.strip_chars().alias("name"),
+        handle_text(source_col="NOME", target_col="name"),
     )
 
     ### LOAD ###
     load_data(ctx.pg_engine_cronos, df_result, "cronos_taxonomies")
+
+
+def migrate_dm70_taxonomies(ctx: ETLContext) -> None:
+    """Migrate "dm70_taxonomies" data.
+
+    Migrate data from ORACLE table "AUAC_USR.CLASSIFICAZIONE_DM_70" to Cronos service PostgreSQL table
+    "dm70_taxonomies".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
+    ### EXTRACT ###
+    df_classificazione_programmazione = extract_data(
+        ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.CLASSIFICAZIONE_DM_70"
+    )
+
+    ### TRANSFORM ###
+    df_result = df_classificazione_programmazione.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        handle_text(source_col="NOME", target_col="name"),
+    )
+
+    ### LOAD ###
+    load_data(ctx.pg_engine_cronos, df_result, "dm70_taxonomies")
 
 
 def migrate_cronos(ctx: ETLContext) -> None:
@@ -74,3 +98,4 @@ def migrate_cronos(ctx: ETLContext) -> None:
     """
     truncate_cronos_tables(ctx)
     migrate_cronos_taxonomies(ctx)
+    migrate_dm70_taxonomies(ctx)
