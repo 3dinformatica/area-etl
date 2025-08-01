@@ -583,4 +583,4 @@ def handle_datetime(source_col: str, target_col: str) -> pl.Expr:
     pl.Expr
         A polars expression that can be used in a select statement
     """
-    return pl.col(source_col).dt.replace_time_zone(None, ambiguous="earliest").alias(target_col)
+    return pl.col(source_col).cast(pl.Datetime).dt.replace_time_zone(None, ambiguous="earliest").alias(target_col)
