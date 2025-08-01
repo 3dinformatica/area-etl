@@ -84,6 +84,47 @@ def migrate_dm70_taxonomies(ctx: ETLContext) -> None:
     load_data(ctx.pg_engine_cronos, df_result, "dm70_taxonomies")
 
 
+def migrate_healthcare_companies(ctx: ETLContext) -> None:
+    """Migrate "healthcare_companies" data.
+
+    Migrate data from ORACLE table "AUAC_USR.AZIENDA_SANITARIA" to Cronos service PostgreSQL table
+    "healthcare_companies".
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
+    ### EXTRACT ###
+    df_azienda_sanitaria = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.AZIENDA_SANITARIA")
+    df_ulss = extract_data(ctx.pg_engine_core, "SELECT * FROM ulss")
+
+    ### TRANSFORM ###
+    df_ulss_tr = df_ulss.select(pl.col("id").alias("ulss_id"), pl.col("code"))
+
+    df_result = df_azienda_sanitaria.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        handle_text(source_col="CODICE", target_col="code"),
+        handle_text(source_col="DESCRIZIONE", target_col="name"),
+    ).join(
+        df_ulss_tr,
+        left_on="code",
+        right_on="code",
+        how="left",
+    )
+
+    ### LOAD ###
+    load_data(ctx.pg_engine_cronos, df_result, "healthcare_companies")
+
+
+def migrate_cronos_plans(ctx: ETLContext) -> None:
+    pass
+
+
+def migrate_cronos_plan_grouping_specialties(ctx: ETLContext) -> None:
+    pass
+
+
 def migrate_cronos(ctx: ETLContext) -> None:
     """
     Migrate data from source databases to the Cronos service database.
@@ -99,3 +140,6 @@ def migrate_cronos(ctx: ETLContext) -> None:
     truncate_cronos_tables(ctx)
     migrate_cronos_taxonomies(ctx)
     migrate_dm70_taxonomies(ctx)
+    migrate_healthcare_companies(ctx)
+    migrate_cronos_plans(ctx)
+    migrate_cronos_plan_grouping_specialties(ctx)
