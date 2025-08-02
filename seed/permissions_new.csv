@@ -1,4 +1,4 @@
-id,name,description
+id,code,description
 b1cc402e-ce37-4830-9289-11b0ecb4aada,report,User can extract reports
 dda0d793-1cfd-4b5b-9b06-6a3ab12d01ae,poa.org,User can access the orgchart related features of POA service
 1c4d78e3-efc4-4df2-ae22-14a877413ac0,poa.fun,User can access the functiongram related features of POA service
