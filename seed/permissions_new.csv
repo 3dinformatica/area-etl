@@ -1,0 +1,8 @@
+id,name,description
+b1cc402e-ce37-4830-9289-11b0ecb4aada,report,User can extract reports
+dda0d793-1cfd-4b5b-9b06-6a3ab12d01ae,poa.org,User can access the orgchart related features of POA service
+1c4d78e3-efc4-4df2-ae22-14a877413ac0,poa.fun,User can access the functiongram related features of POA service
+33dbef0b-48c0-4be5-af41-e9a7d2b7131d,replan,User can access the floor plans related features
+b0088eb2-df43-483c-a4ca-169861da7b11,user.read,User can read other user resources
+1616b740-c3f3-49fc-b89f-2e7d1c30f49c,user.write,User can write other user resources
+6db87e10-1536-421c-872c-c085c3c60aa9,cp,User can access the functions relating to prescribing centers
