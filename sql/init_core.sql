@@ -307,6 +307,13 @@ CREATE TABLE public.udo_production_factors
     CONSTRAINT pk_udo_production_factors PRIMARY KEY (udo_id, production_factor_id)
 );
 
+CREATE TABLE public.udo_resolutions
+(
+    udo_id        UUID NOT NULL,
+    resolution_id UUID NOT NULL,
+    CONSTRAINT pk_udo_resolutions PRIMARY KEY (udo_id, resolution_id)
+);
+
 CREATE TABLE public.udo_specialties
 (
     id                           UUID                     DEFAULT gen_random_uuid() NOT NULL,
@@ -553,6 +560,12 @@ ALTER TABLE public.udo_production_factors
 
 ALTER TABLE public.udo_production_factors
     ADD CONSTRAINT fk_udo_production_factors_udo_id FOREIGN KEY (udo_id) REFERENCES public.udos (id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+
+ALTER TABLE public.udo_resolutions
+    ADD CONSTRAINT fk_udo_resolutions_resolution_id FOREIGN KEY (resolution_id) REFERENCES public.resolutions (id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+
+ALTER TABLE public.udo_resolutions
+    ADD CONSTRAINT fk_udo_resolutions_udo_id FOREIGN KEY (udo_id) REFERENCES public.udos (id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ALTER TABLE public.udo_specialties
     ADD CONSTRAINT fk_udo_specialties_specialty_id FOREIGN KEY (specialty_id) REFERENCES public.specialties (id) ON UPDATE NO ACTION ON DELETE NO ACTION;

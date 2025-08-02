@@ -1661,7 +1661,6 @@ def migrate_udo_specialties(ctx: ETLContext) -> None:
 
 
 def migrate_udo_resolutions(ctx: ETLContext) -> None:
-    # TODO: Non esiste la tabella nello schema!!
     """
     Migrates resolution data for UDOs.
 
@@ -1987,8 +1986,9 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_udo_types(ctx)
     migrate_udos(ctx)
     migrate_udo_production_factors(ctx)
-    migrate_udo_type_production_factor_types(ctx)
+    migrate_udo_resolutions(ctx)
     migrate_udo_specialties(ctx)
+    migrate_udo_type_production_factor_types(ctx)
     migrate_users(ctx)
     migrate_permissions(ctx)
     migrate_user_companies(ctx)
