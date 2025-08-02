@@ -1930,78 +1930,23 @@ def migrate_user_companies(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df_utente_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
     df_operatore_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.OPERATORE_MODEL")
 
     ### TRANSFORM ###
-    # Get timestamp expressions with direct_disabled_col
-    timestamp_exprs = handle_timestamps(direct_disabled_col="DATA_DISABILITATO")
+    timestamp_exprs = handle_timestamps()
 
-    df_user = df_utente_model.select(
-        pl.col("CLIENTID").alias("id"),
-        pl.col("CLIENTID").alias("user_id"),
-        pl.lit("*").alias("company_id"),
+    df_result = df_operatore_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.lit(False).alias("is_legal_representative"),
+        pl.col("ID_UTENTE_FK").str.strip_chars().alias("user_id"),
+        pl.col("ID_TITOLARE_FK").str.strip_chars().alias("company_id"),
         timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
     )
 
-    # Get timestamp expressions for operator model
-    operator_timestamp_exprs = handle_timestamps()
-
-    df_operator = df_operatore_model.select(
-        pl.col("CLIENTID").alias("id"),
-        pl.col("ID_UTENTE_FK").alias("user_id"),
-        pl.col("ID_TITOLARE_FK").alias("company_id"),
-        operator_timestamp_exprs["disabled_at"],
-        operator_timestamp_exprs["created_at"],
-        operator_timestamp_exprs["updated_at"],
-    )
-
-    # Combine the dataframes
-    df_combined = pl.concat([df_user, df_operator])
-
-    # Fill missing values and add flag_legale
-    df_combined = df_combined.with_columns(
-        [
-            pl.col("company_id").fill_null("*"),
-            pl.lit(False).alias("is_legal_representative"),
-        ]
-    )
-
-    # Sort by user_id and fill missing disabled_at values
-    df_combined = df_combined.sort("user_id")
-    df_combined = df_combined.with_columns(
-        [
-            pl.col("disabled_at").fill_null(pl.col("disabled_at").forward_fill().backward_fill()),
-            pl.col("created_at").fill_null(pl.col("updated_at")),
-            pl.col("updated_at").fill_null(pl.col("created_at")),
-        ]
-    )
-
-    # Handle duplicates
-    df_duplicates = df_combined.filter(pl.col("user_id").is_duplicated() & pl.col("company_id").is_duplicated())
-
-    # Create id mapping for duplicates
-    id_map = {}
-    for _key, group_df in df_duplicates.group_by(["user_id", "company_id"]):
-        kept_id = group_df["id"].first()
-        deleted_ids = group_df["id"].tail(-1)
-        for deleted_id in deleted_ids:
-            id_map[deleted_id] = kept_id
-
-    # Remove duplicates
-    df_combined = df_combined.unique(subset=["user_id", "company_id"])
-
     ### LOAD ###
-    df_combined.write_database(
-        table_name="user_companies",
-        connection=ctx.pg_engine_core,
-        if_table_exists="append",
-    )
-
-    logging.info("Migrated user companies")
-    return id_map
+    load_data(ctx.pg_engine_core, df_result, "user_companies")
 
 
 ### ALL ###
