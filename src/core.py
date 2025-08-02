@@ -1830,10 +1830,16 @@ def migrate_users(ctx: ETLContext) -> None:
     ### EXTRACT ###
     df_utente_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UTENTE_MODEL")
     df_anagrafica_utente_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.ANAGRAFICA_UTENTE_MODEL")
+    df_uo_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.UO_MODEL")
     df_municipalities = extract_data(ctx.pg_engine_core, "SELECT * FROM municipalities")
 
     ### TRANSFORM ###
     timestamp_exprs = handle_timestamps(direct_disabled_col="DATA_DISABILITATO")
+
+    df_uo_model_tr = df_uo_model.select(
+        pl.col("CLIENTID").str.strip_chars().alias("operational_unit_id"),
+        pl.col("ID_UO").str.strip_chars(),
+    )
 
     df_municipalities_tr = df_municipalities.select(
         pl.col("istat_code"),
@@ -1873,11 +1879,18 @@ def migrate_users(ctx: ETLContext) -> None:
         handle_text(source_col="CARTA_IDENT_NUM", target_col="identity_doc_number"),
         handle_datetime(source_col="CARTA_IDENT_SCAD", target_col="identity_doc_expiry_date"),
         handle_text(source_col="PROFESSIONE", target_col="job"),
-        # pl.col("ID_UO_FK").alias("operational_unit_id"), # FIXME: Non trova le references
+        pl.when(pl.col("PROVENIENZA_UO") == "ORGANIGRAMMA_TREE").then(None).otherwise(pl.col("ID_UO")).alias("ID_UO"),
         timestamp_exprs["disabled_at"],
         timestamp_exprs["created_at"],
         timestamp_exprs["updated_at"],
     )
+
+    df_result = df_result.join(
+        df_uo_model_tr,
+        left_on="ID_UO",
+        right_on="ID_UO",
+        how="left",
+    ).drop("ID_UO")
 
     ### LOAD ###
     load_data(ctx.pg_engine_core, df_result, "users")
@@ -2014,23 +2027,23 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_toponyms(ctx)
     migrate_districts(ctx)
     migrate_ulss(ctx)
-    #    migrate_company_types(ctx)
-    #    migrate_companies(ctx)
-    #    migrate_physical_structures(ctx)
-    #    migrate_operational_offices(ctx)
-    #    migrate_buildings(ctx)
-    #    migrate_grouping_specialties(ctx)
-    #    migrate_specialties(ctx)
-    #    migrate_resolution_types(ctx)
-    #    migrate_resolutions(ctx)
-    #    migrate_operational_units(ctx)
-    #    migrate_production_factor_types(ctx)
-    #    migrate_production_factors(ctx)
-    #    migrate_udo_type_classifications(ctx)
-    #    migrate_udo_types(ctx)
-    #    migrate_udos(ctx)
-    #    migrate_udo_production_factors(ctx)
-    #    migrate_udo_type_production_factor_types(ctx)
-    #    migrate_udo_specialties(ctx)
+    migrate_company_types(ctx)
+    migrate_companies(ctx)
+    migrate_physical_structures(ctx)
+    migrate_operational_offices(ctx)
+    migrate_buildings(ctx)
+    migrate_grouping_specialties(ctx)
+    migrate_specialties(ctx)
+    migrate_resolution_types(ctx)
+    migrate_resolutions(ctx)
+    migrate_operational_units(ctx)
+    migrate_production_factor_types(ctx)
+    migrate_production_factors(ctx)
+    migrate_udo_type_classifications(ctx)
+    migrate_udo_types(ctx)
+    migrate_udos(ctx)
+    migrate_udo_production_factors(ctx)
+    migrate_udo_type_production_factor_types(ctx)
+    migrate_udo_specialties(ctx)
     migrate_users(ctx)
     migrate_user_companies(ctx)
