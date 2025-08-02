@@ -1017,9 +1017,7 @@ def migrate_resolutions(ctx: ETLContext, bucket_name: str = "area-resolutions") 
     df_result_without_files = df_result_without_files.drop("ID_ALLEGATO_FK")
 
     df_result = pl.concat(
-        [
-            df_result_with_files_minio,
-        ],
+        [df_result_with_files_minio, df_result_without_files],
         how="diagonal_relaxed",
     )
 
