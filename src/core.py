@@ -1909,11 +1909,10 @@ def migrate_permissions(ctx: ETLContext) -> None:
         The ETL context containing database connections
     """
     ### EXTRACT ###
-    df = pl.read_csv("seed/permissions.csv")
+    df_result = extract_data_from_csv("seed/permissions_new.csv")
 
     ### LOAD ###
-    df.write_database(table_name="permissions", connection=ctx.pg_engine_core, if_table_exists="append")
-    logging.info("Loaded seed data into permissions table")
+    load_data(ctx.pg_engine_core, df_result, "permissions")
 
 
 def migrate_user_companies(ctx: ETLContext) -> None:
@@ -1991,4 +1990,5 @@ def migrate_core(ctx: ETLContext) -> None:
     migrate_udo_type_production_factor_types(ctx)
     migrate_udo_specialties(ctx)
     migrate_users(ctx)
+    migrate_permissions(ctx)
     migrate_user_companies(ctx)
