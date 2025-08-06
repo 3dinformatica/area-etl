@@ -1856,7 +1856,11 @@ def migrate_users(ctx: ETLContext) -> None:
     )
 
     df_result = df_joined.select(
-        pl.col("CLIENTID").str.strip_chars().alias("id"),
+        pl.col("CLIENTID_right")
+        .str.strip_chars()
+        .alias(
+            "id"
+        ),  # TODO: Non usare il campo "CLIENTID_right", è nascosto. Forse meglio girare la join per incrementare readability?
         handle_text(source_col="USERNAME_CAS", target_col="username"),
         handle_enum_mapping(
             source_col="RUOLO",
@@ -1925,6 +1929,8 @@ def migrate_user_companies(ctx: ETLContext) -> None:
     ctx: ETLContext
         The ETL context containing database connections
     """
+    # TODO: Legale rappresentante (is_legal_representative) -> TITOLARE_MODEL.ID_UTENTE_FK
+
     ### EXTRACT ###
     df_operatore_model = extract_data(ctx.oracle_engine_area, "SELECT * FROM AUAC_USR.OPERATORE_MODEL")
 
