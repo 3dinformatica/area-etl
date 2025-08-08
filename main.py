@@ -6,6 +6,7 @@ from auac import migrate_auac
 from core import migrate_core
 from cronos import migrate_cronos
 from poa import migrate_poa
+from ppf import migrate_ppf
 from utils import (
     format_elapsed_time,
     setup_connections,
@@ -27,7 +28,7 @@ def parse_args() -> argparse.Namespace:
         "--modules",
         type=str,
         default="all",
-        help="Modules to migrate: 'all', 'core', 'poa', 'cronos', 'auac', or a comma-separated list (default: 'all')",
+        help="Modules to migrate: 'all', 'core', 'poa', 'cronos', 'auac', 'ppf', or a comma-separated list (default: 'all')",
     )
     return parser.parse_args()
 
@@ -49,6 +50,7 @@ def main() -> None:
             migrate_poa(ctx)
             migrate_cronos(ctx)
             migrate_auac(ctx)
+            migrate_ppf(ctx)
         else:
             if "core" in modules_to_migrate:
                 migrate_core(ctx)
@@ -58,6 +60,8 @@ def main() -> None:
                 migrate_cronos(ctx)
             if "auac" in modules_to_migrate:
                 migrate_auac(ctx)
+            if "ppf" in modules_to_migrate:
+                migrate_ppf(ctx)
 
         elapsed_time = format_elapsed_time(start_time)
         logging.info(f"Total migration time: {elapsed_time}")

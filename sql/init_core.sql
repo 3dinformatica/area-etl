@@ -262,7 +262,7 @@ CREATE TABLE public.resolutions
     CONSTRAINT unique_resolutions_name UNIQUE (name)
 );
 
-COMMENT ON COLUMN public.resolutions.category IS 'Enum values: UDO, GENERALE, PROGRAMMAZIONE, REQUISITI';
+COMMENT ON COLUMN public.resolutions.category IS 'Enum values: UDO, GENERALE, PROGRAMMAZIONE, REQUISITI, PPF';
 
 COMMENT ON COLUMN public.resolutions.procedure_type IS 'Enum values: AUTORIZZAZIONE, ACCREDITAMENTO, REVOCA_AUT, REVOCA_ACC';
 

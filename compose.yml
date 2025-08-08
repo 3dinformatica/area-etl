@@ -13,6 +13,7 @@ services:
       - ./sql/init_poa.sql:/docker-entrypoint-initdb.d/02_init_poa.sql
       - ./sql/init_cronos.sql:/docker-entrypoint-initdb.d/03_init_cronos.sql
       - ./sql/init_auac.sql:/docker-entrypoint-initdb.d/04_init_auac.sql
+      - ./sql/init_ppf.sql:/docker-entrypoint-initdb.d/05_init_ppf.sql
 
   area-etl-minio:
     container_name: area-etl-minio

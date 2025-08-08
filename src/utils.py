@@ -23,6 +23,8 @@ class ETLContext:
         SQLAlchemy engine for Oracle database connection for main A.Re.A. services
     oracle_engine_poa : Engine
         SQLAlchemy engine for Oracle database connection for POA A.Re.A. services
+    oracle_engine_ppf : Engine
+        SQLAlchemy engine for Oracle database connection for PPF A.Re.A. services
     pg_engine_core : Engine
         SQLAlchemy engine for PostgreSQL A.Re.A. Core service database connection
     pg_engine_poa : Engine
@@ -31,16 +33,20 @@ class ETLContext:
         SQLAlchemy engine for PostgreSQL A.Re.A. Cronos service database connection
     pg_engine_auac : Engine
         SQLAlchemy engine for PostgreSQL A.Re.A. Au.Ac. service database connection
+    pg_engine_ppf : Engine
+        SQLAlchemy engine for PostgreSQL A.Re.A. P.P.F. service database connection
     minio_client : Minio
         MinIO client for object storage operations
     """
 
     oracle_engine_area: Engine
     oracle_engine_poa: Engine
+    oracle_engine_ppf: Engine
     pg_engine_core: Engine
     pg_engine_poa: Engine
     pg_engine_cronos: Engine
     pg_engine_auac: Engine
+    pg_engine_ppf: Engine
     minio_client: Minio
 
 
@@ -76,10 +82,12 @@ def setup_connections() -> ETLContext:
 
     - oracle_engine_area: Connection to the main A.Re.A. services Oracle database
     - oracle_engine_poa: Connection to the POA A.Re.A. services Oracle database
+    - oracle_engine_ppf: Connection to the PPF A.Re.A. services Oracle database
     - pg_engine_core: Connection to the A.Re.A. Core service PostgreSQL database
     - pg_engine_poa: Connection to the A.Re.A. POA service PostgreSQL database
     - pg_engine_cronos: Connection to the A.Re.A. Cronos service PostgreSQL database
     - pg_engine_auac: Connection to the A.Re.A. Au.Ac. service PostgreSQL database
+    - pg_engine_ppf: Connection to the A.Re.A. PPF service PostgreSQL database
     - minio_client: MinIO client for object storage operations
 
     Returns
@@ -90,10 +98,12 @@ def setup_connections() -> ETLContext:
     init_oracle_client(lib_dir=settings.ORACLE_CLIENT_LIB_DIR)
     oracle_engine_area = create_engine(settings.ORACLE_URI_AREA)
     oracle_engine_poa = create_engine(settings.ORACLE_URI_POA)
+    oracle_engine_ppf = create_engine(settings.ORACLE_URI_PPF)
     pg_engine_core = create_engine(settings.PG_URI_CORE)
     pg_engine_poa = create_engine(settings.PG_URI_POA)
     pg_engine_cronos = create_engine(settings.PG_URI_CRONOS)
     pg_engine_auac = create_engine(settings.PG_URI_AUAC)
+    pg_engine_ppf = create_engine(settings.PG_URI_PPF)
     minio_client = Minio(
         settings.MINIO_ENDPOINT,
         access_key=settings.MINIO_ACCESS_KEY,
@@ -106,10 +116,12 @@ def setup_connections() -> ETLContext:
     return ETLContext(
         oracle_engine_area=oracle_engine_area,
         oracle_engine_poa=oracle_engine_poa,
+        oracle_engine_ppf=oracle_engine_ppf,
         pg_engine_core=pg_engine_core,
         pg_engine_poa=pg_engine_poa,
         pg_engine_cronos=pg_engine_cronos,
         pg_engine_auac=pg_engine_auac,
+        pg_engine_ppf=pg_engine_ppf,
         minio_client=minio_client,
     )
 
@@ -274,9 +286,9 @@ def handle_created_at(creation_col: str = "CREATION", current_time: datetime | N
 
 
 def handle_updated_at(
-    last_mod_col: str = "LAST_MOD",
-    creation_col: str = "CREATION",
-    current_time: datetime | None = None,
+        last_mod_col: str = "LAST_MOD",
+        creation_col: str = "CREATION",
+        current_time: datetime | None = None,
 ) -> pl.Expr:
     """
     Handle the updated_at timestamp field transformation.
@@ -315,11 +327,11 @@ def handle_updated_at(
 
 
 def handle_disabled_at(
-    disabled_col: str = "DISABLED",
-    disabled_value: str = "S",
-    last_mod_col: str = "LAST_MOD",
-    creation_col: str = "CREATION",
-    direct_disabled_col: str | None = None,
+        disabled_col: str = "DISABLED",
+        disabled_value: str = "S",
+        last_mod_col: str = "LAST_MOD",
+        creation_col: str = "CREATION",
+        direct_disabled_col: str | None = None,
 ) -> pl.Expr:
     """
     Handle the disabled_at timestamp field transformation.
@@ -366,11 +378,11 @@ def handle_disabled_at(
 
 
 def handle_timestamps(
-    creation_col: str = "CREATION",
-    last_mod_col: str = "LAST_MOD",
-    disabled_col: str = "DISABLED",
-    disabled_value: str = "S",
-    direct_disabled_col: str | None = None,
+        creation_col: str = "CREATION",
+        last_mod_col: str = "LAST_MOD",
+        disabled_col: str = "DISABLED",
+        disabled_value: str = "S",
+        direct_disabled_col: str | None = None,
 ) -> dict[str, pl.Expr]:
     """
     Handle all timestamp field transformations at once.
