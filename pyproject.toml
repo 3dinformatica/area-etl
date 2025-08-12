@@ -11,17 +11,17 @@ dependencies = [
     "oracledb>=3.3.0",
     "pandas>=2.3.1",
     "pandas-stubs>=2.3.0.250703",
-    "polars>=1.32.1",
+    "polars>=1.32.2",
     "psycopg2-binary>=2.9.10",
     "pyarrow>=21.0.0",
     "pydantic-settings>=2.10.1",
-    "sqlalchemy>=2.0.42",
+    "sqlalchemy>=2.0.43",
     "tqdm>=4.67.1",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.12.7",
+    "ruff>=0.12.8",
 ]
 
 [tool.ruff]
