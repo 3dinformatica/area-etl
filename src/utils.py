@@ -70,22 +70,39 @@ def setup_connections() -> ETLContext:
     """
     Initialize database connections for ETL operations.
 
-    Sets up an Oracle client and creates database engine connections
-    for two Oracle databases (area and poa) and all the PostgreSQL databases of the services.
-    Also initializes a MinIO client for object storage operations.
+    This function:
 
-    - oracle_engine_area: Connection to the main A.Re.A. services Oracle database
-    - oracle_engine_poa: Connection to the POA A.Re.A. services Oracle database
-    - pg_engine_core: Connection to the A.Re.A. Core service PostgreSQL database
-    - pg_engine_poa: Connection to the A.Re.A. POA service PostgreSQL database
-    - pg_engine_cronos: Connection to the A.Re.A. Cronos service PostgreSQL database
-    - pg_engine_auac: Connection to the A.Re.A. Au.Ac. service PostgreSQL database
-    - minio_client: MinIO client for object storage operations
+    - Initializes the Oracle client.
+    - Creates SQLAlchemy engines for Oracle (area, poa) and PostgreSQL (core, poa, cronos, auac).
+    - Initializes a MinIO client for object storage.
+
+    Configuration (environment variables):
+
+    - ORACLE_CLIENT_LIB_DIR: Absolute path to Oracle Instant Client directory.
+    - ORACLE_URI_AREA: SQLAlchemy URI for Oracle (e.g., 'oracle://user:pass@host:1521/SERVICE').
+    - ORACLE_URI_POA: SQLAlchemy URI for Oracle.
+    - PG_URI_CORE|POA|CRONOS|AUAC: SQLAlchemy URIs for PostgreSQL databases.
+    - MINIO_ENDPOINT: MinIO endpoint as 'host[:port]' WITHOUT scheme and WITHOUT path.
+        - Examples (valid): 'localhost:9000', 'minio.company.it', 'minio.company.it:9000'
+        - Examples (invalid): 'http://minio:9000', 'https://minio.company.it', 'minio:9000/minio'
+        - Note: The MinIO Python SDK expects only host[:port]. If you include 'http(s)://' or a path, it will raise ValueError: 'path in endpoint is not allowed'.
+    - MINIO_ACCESS_KEY: Access key for MinIO.
+    - MINIO_SECRET_KEY: Secret key for MinIO.
+    - ATTACHMENTS_DIR: Directory for storing attachments.
+
+    MinIO security:
+
+    By default, the client is created with secure=False (HTTP). If your MinIO instance requires HTTPS/TLS, you must:
+
+    - Provide an endpoint without scheme (still 'host[:port]').
+    - Change the 'secure' parameter in this function to True.
+
+    A future improvement could introduce a MINIO_SECURE env var to control this.
 
     Returns
     -------
     ETLContext
-        Context object containing all database connections and the MinIO client
+        Context object containing all database connections and the MinIO client.
     """
     init_oracle_client(lib_dir=settings.ORACLE_CLIENT_LIB_DIR)
     oracle_engine_area = create_engine(settings.ORACLE_URI_AREA)
@@ -94,6 +111,7 @@ def setup_connections() -> ETLContext:
     pg_engine_poa = create_engine(settings.PG_URI_POA)
     pg_engine_cronos = create_engine(settings.PG_URI_CRONOS)
     pg_engine_auac = create_engine(settings.PG_URI_AUAC)
+    # MINIO_ENDPOINT must be provided as 'host[:port]' without scheme or path (see docstring).
     minio_client = Minio(
         settings.MINIO_ENDPOINT,
         access_key=settings.MINIO_ACCESS_KEY,
