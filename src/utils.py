@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import polars as pl
 from cx_Oracle import init_oracle_client
@@ -78,26 +79,21 @@ def setup_connections() -> ETLContext:
 
     Configuration (environment variables):
 
-    - ORACLE_CLIENT_LIB_DIR: Absolute path to Oracle Instant Client directory.
-    - ORACLE_URI_AREA: SQLAlchemy URI for Oracle (e.g., 'oracle://user:pass@host:1521/SERVICE').
-    - ORACLE_URI_POA: SQLAlchemy URI for Oracle.
-    - PG_URI_CORE|POA|CRONOS|AUAC: SQLAlchemy URIs for PostgreSQL databases.
-    - MINIO_ENDPOINT: MinIO endpoint as 'host[:port]' WITHOUT scheme and WITHOUT path.
-        - Examples (valid): 'localhost:9000', 'minio.company.it', 'minio.company.it:9000'
-        - Examples (invalid): 'http://minio:9000', 'https://minio.company.it', 'minio:9000/minio'
-        - Note: The MinIO Python SDK expects only host[:port]. If you include 'http(s)://' or a path, it will raise ValueError: 'path in endpoint is not allowed'.
-    - MINIO_ACCESS_KEY: Access key for MinIO.
-    - MINIO_SECRET_KEY: Secret key for MinIO.
-    - ATTACHMENTS_DIR: Directory for storing attachments.
+    - ``ORACLE_CLIENT_LIB_DIR``: Absolute path to Oracle Instant Client directory.
+    - ``ORACLE_URI_AREA``: SQLAlchemy URI for Oracle (e.g., 'oracle://user:pass@host:1521/SERVICE').
+    - ``ORACLE_URI_POA``: SQLAlchemy URI for Oracle.
+    - ``PG_URI_CORE`` | ``POA`` | ``CRONOS`` | ``AUAC``: SQLAlchemy URIs for PostgreSQL databases.
+    - ``MINIO_ENDPOINT``: MinIO endpoint which may be provided as 'host[:port]' or full URL with scheme. Any path
+      component will be ignored. Examples: 'localhost:9000', 'https://minio.company.it'.
+    - ``MINIO_SECURE``: 'true'/'false' to force HTTPS (True) or HTTP (False). If ``MINIO_ENDPOINT`` contains a scheme,
+      that scheme takes precedence.
+    - ``MINIO_ACCESS_KEY``: Access key for MinIO.
+    - ``MINIO_SECRET_KEY``: Secret key for MinIO.
+    - ``ATTACHMENTS_DIR``: Directory for storing attachments.
 
     MinIO security:
 
-    By default, the client is created with secure=False (HTTP). If your MinIO instance requires HTTPS/TLS, you must:
-
-    - Provide an endpoint without scheme (still 'host[:port]').
-    - Change the 'secure' parameter in this function to True.
-
-    A future improvement could introduce a MINIO_SECURE env var to control this.
+    If your MinIO instance requires HTTPS/TLS, either use an https:// MINIO_ENDPOINT or set MINIO_SECURE=true.
 
     Returns
     -------
@@ -111,13 +107,32 @@ def setup_connections() -> ETLContext:
     pg_engine_poa = create_engine(settings.PG_URI_POA)
     pg_engine_cronos = create_engine(settings.PG_URI_CRONOS)
     pg_engine_auac = create_engine(settings.PG_URI_AUAC)
-    # MINIO_ENDPOINT must be provided as 'host[:port]' without scheme or path (see docstring).
+
+    # Build MinIO client with robust endpoint handling
+    raw_endpoint = settings.MINIO_ENDPOINT.strip()
+    parsed = urlparse(raw_endpoint if "://" in raw_endpoint else f"//{raw_endpoint}", scheme="http")
+    # If scheme is missing, urlparse will treat it as netloc due to '//'.
+    scheme = parsed.scheme if parsed.scheme and parsed.scheme != "" else "http"
+    netloc = parsed.netloc if parsed.netloc else parsed.path
+    # Remove any accidental path/query/fragment
+    endpoint = netloc
+
+    # Determine secure flag: https -> True; else fallback to settings.MINIO_SECURE
+    secure = True if scheme.lower() == "https" else bool(settings.MINIO_SECURE)
+
+    if parsed.path not in ("", "/"):
+        logging.warning(
+            "MINIO_ENDPOINT contains a path '%s' which will be ignored. Using endpoint '%s' with secure=%s",
+            parsed.path,
+            endpoint,
+            secure,
+        )
+
     minio_client = Minio(
-        settings.MINIO_ENDPOINT,
+        endpoint,
         access_key=settings.MINIO_ACCESS_KEY,
         secret_key=settings.MINIO_SECRET_KEY,
-        secure=False,
-        # Set http_client to None to use the default client with optimized settings
+        secure=secure,
         http_client=None,
     )
 

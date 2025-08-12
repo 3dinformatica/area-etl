@@ -48,7 +48,9 @@ class Settings(BaseSettings):
     PG_URI_AUAC: str
         Connection string for PostgreSQL A.Re.A. Au.Ac. service database
     MINIO_ENDPOINT: str
-        Endpoint URL for MinIO object storage
+        Endpoint (host[:port]) for MinIO/S3-compatible object storage. Can optionally include http/https scheme.
+    MINIO_SECURE: bool
+        Whether to use HTTPS (True) or HTTP (False) when connecting to MinIO. If MINIO_ENDPOINT contains a scheme, it overrides this value.
     MINIO_ACCESS_KEY: str
         Access key for MinIO object storage
     MINIO_SECRET_KEY: str
@@ -65,6 +67,7 @@ class Settings(BaseSettings):
     PG_URI_CRONOS: str = "postgresql://username:password@hostname:5432/area_cronos_db"
     PG_URI_AUAC: str = "postgresql://username:password@hostname:5432/area_auac_db"
     MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_SECURE: bool = False
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     ATTACHMENTS_DIR: str = "attachments"
