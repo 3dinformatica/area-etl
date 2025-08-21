@@ -13,7 +13,7 @@ CREATE TABLE cronos_companies
     disabled_at     TIMESTAMP WITH TIME ZONE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    CONSTRAINT pk_cronos_companies PRIMARY KEY (id),
+    CONSTRAINT pk_companies PRIMARY KEY (id),
     CONSTRAINT uc_cronos_companies_code UNIQUE (code)
 );
 
@@ -21,6 +21,7 @@ CREATE TABLE cronos_physical_structures
 (
     id                         UUID                     NOT NULL DEFAULT gen_random_uuid(),
     name                       TEXT                     NOT NULL,
+    "order"                    NUMERIC(38,2),
     hsp_code                   VARCHAR(8),
     municipality_id            UUID,
     area_physical_structure_id UUID,
@@ -52,9 +53,12 @@ CREATE TABLE cronos_plan_specialties
     validity_resolution_insert_user_id UUID,
     num_uos                            INTEGER,
     note                               TEXT,
+    num_beds_extra_regional            INTEGER,
     num_beds_regional                  INTEGER,
     num_uosd                           INTEGER,
     activities                         TEXT,
+    --   BRANCA, AREADISCIPLINA, TIPOUDO22
+    cronos_plan_specialty_type         TEXT,
     parent_id                          UUID,
     sub_specialty_id                   UUID,
     num_beds_dialysis                  INTEGER,
@@ -82,6 +86,7 @@ CREATE TABLE cronos_plan_grouping_specialties
 (
     id                    UUID                     NOT NULL DEFAULT gen_random_uuid(),
     num_beds_extra_reg    INTEGER,
+    "order"               NUMERIC(38,2),
     cronos_plan_id        UUID                     NOT NULL,
     grouping_specialty_id UUID                     NOT NULL,
     extra                 JSONB                    NOT NULL DEFAULT '{}'::jsonb,
@@ -117,6 +122,7 @@ CREATE TABLE cronos_plans
     cronos_physical_structure_id UUID                     NOT NULL,
     cronos_taxonomy_id           UUID                     NOT NULL,
     ulss_id                      UUID                     NOT NULL,
+    owner_nature_id              UUID,
     extra                        JSONB                    NOT NULL DEFAULT '{}'::jsonb,
     disabled_at                  TIMESTAMP WITH TIME ZONE,
     created_at                   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),

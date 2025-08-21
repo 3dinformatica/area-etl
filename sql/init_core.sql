@@ -83,6 +83,7 @@ CREATE TABLE public.grouping_specialties
 (
     id          UUID                     DEFAULT gen_random_uuid() NOT NULL,
     name        TEXT                                               NOT NULL,
+    "order"     INTEGER                                            NOT NULL,
     macroarea   TEXT,
     disabled_at TIMESTAMP WITH TIME ZONE,
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()             NOT NULL,
@@ -270,6 +271,7 @@ CREATE TABLE public.specialties
 (
     id                    UUID                     DEFAULT gen_random_uuid() NOT NULL,
     name                  TEXT                                               NOT NULL,
+    "order"               INTEGER                                            NOT NULL,
     description           TEXT,
     record_type           VARCHAR(100)                                       NOT NULL,
     type                  VARCHAR(100),

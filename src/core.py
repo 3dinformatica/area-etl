@@ -577,6 +577,7 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
     df_result = df_result.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
+        pl.col("ORDINE").alias("order"),
         handle_enum_mapping(
             source_col="macroarea",
             target_col="macroarea",
@@ -640,6 +641,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
     df_artic_branca_altro_templ_tr = df_artic_branca_altro_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("name"),
+        pl.col("ORDINE").alias("order"),
         pl.col("SETTING_BRANCA").str.strip_chars().alias("description"),
         pl.lit("BRANCH").alias("record_type"),
         pl.lit(None).alias("type"),
