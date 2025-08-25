@@ -577,7 +577,7 @@ def migrate_grouping_specialties(ctx: ETLContext) -> None:
     df_result = df_result.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DENOMINAZIONE").str.strip_chars().alias("name"),
-        pl.col("ORDINE").alias("order"),
+        pl.col("ORDINE").alias("sort_order"),
         handle_enum_mapping(
             source_col="macroarea",
             target_col="macroarea",
@@ -615,6 +615,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
     df_branca_templ_not_altro_tr = df_branca_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
+        pl.lit(None).alias("sort_order"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("description"),
         pl.lit("BRANCH").alias("record_type"),
         pl.lit(None).alias("type"),
@@ -641,7 +642,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
     df_artic_branca_altro_templ_tr = df_artic_branca_altro_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("DESCR").str.strip_chars().fill_null("-").alias("name"),
-        pl.col("ORDINE").alias("order"),
+        pl.lit(None).alias("sort_order"),
         pl.col("SETTING_BRANCA").str.strip_chars().alias("description"),
         pl.lit("BRANCH").alias("record_type"),
         pl.lit(None).alias("type"),
@@ -659,6 +660,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
     df_disciplines = df_disciplina_templ.select(
         pl.col("CLIENTID").cast(pl.String).str.strip_chars().alias("id"),
         pl.col("NOME").str.strip_chars().alias("name"),
+        pl.col("ORDINE").alias("sort_order"),
         pl.col("DESCR").str.strip_chars().alias("description"),
         pl.lit("DISCIPLINE").alias("record_type"),
         handle_enum_mapping(
@@ -679,7 +681,7 @@ def migrate_specialties(ctx: ETLContext) -> None:
 
     df_result = pl.concat(
         [df_branca_templ_not_altro_tr, df_artic_branca_altro_templ_tr, df_disciplines],
-        how="vertical_relaxed",
+        how="diagonal_relaxed",
     )
 
     ### LOAD ###
