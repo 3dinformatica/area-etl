@@ -118,10 +118,24 @@ def migrate_healthcare_companies(ctx: ETLContext) -> None:
 
 
 def migrate_cronos_plans(ctx: ETLContext) -> None:
+    """Migrate "cronos_plans" data.
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     pass
 
 
 def migrate_cronos_plan_grouping_specialties(ctx: ETLContext) -> None:
+    """Migrate "cronos_plan_grouping_specialties" data.
+
+    Parameters
+    ----------
+    ctx: ETLContext
+        The ETL context containing database connections
+    """
     pass
 
 
